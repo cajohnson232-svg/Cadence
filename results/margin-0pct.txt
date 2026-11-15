@@ -1,0 +1,28 @@
+=== margin-0pct: 8h+12h block, 32+ shifts/day (seed 10) ===
+60 residents, 936 shifts (32-34 per day), shift lengths [8.0, 12.0] h, staffing margin +0.0%
+Academic time: Wed 01/06 13:00-16:00; Wed 01/13 11:30-14:30; Wed 01/20 13:00-15:30; Wed 01/27 13:00-16:00  [shift overlaps: blocked]
+pre-check warning: Total coverage: tight - 936 shifts needed, 936 available.
+Model: 60 residents, 22,655 assignment decisions, 1,524,657 non-zeros. Engine: HiGHS, strategy: lns
+Greedy warm start: 14 of 936 shifts open (0s)
+Swap polish: 685 improving moves, 0 shifts open (60s)
+  pass 1  night runs too close               3.0 ->     2.0    65s
+  pass 1  isolated days off                 42.0 ->    26.0    41s
+  pass 1  extra / over-long night runs      30.0 ->    29.0    74s
+  pass 1  requests off missed               26.0 ->    26.0     5s
+  pass 2  night runs too close               2.0 ->     1.0    16s
+  pass 2  isolated days off                 27.0 ->    22.0    13s
+  pass 2  extra / over-long night runs      28.0 ->    28.0    16s
+  pass 2  requests off missed               21.0 ->    20.0    11s
+Validator: 0 hard-rule violations, 0 open shifts, 0 residents under contract minimum
+Peak hours in any rolling 7 days: 60 (limit 60); tightest rest margin: 0h beyond the required rest
+  contract shortfall                 0.0   [optimal]
+  backward rotations                 0.0   [optimal]
+  day/evening/night balance          0.0   [optimal]
+  night runs too close               1.0   [best found]
+  nights into vacation               0.0   [optimal]
+  night share over limit             0.0   [optimal]
+  pod balance                        2.0   [optimal]
+  isolated days off                 22.0   [best found]
+  extra / over-long night runs      28.0   [best found]
+  requests off missed               20.0   [best found]
+Total time 304s; exact sub-solves: 199; moves rejected by the validator: 0

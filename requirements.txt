@@ -1,0 +1,5 @@
+# The scheduling engine (run.py and cadence/). Python 3.10 or newer.
+numpy
+scipy
+# Optional: the engine uses OR-Tools CP-SAT when this is installed, and HiGHS (bundled with SciPy) when it is not.
+ortools

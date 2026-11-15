@@ -1,0 +1,31 @@
+=== excused-late-8h+10h+12h: 8h+10h+12h block, 33+ shifts/day (seed 13) ===
+62 residents, 964 shifts (33-35 per day), shift lengths [8.0, 10.0, 12.0] h, staffing margin +4.6%
+Academic time: Thu 01/07 13:00-16:30; Thu 01/14 11:00-14:00; Thu 01/21 13:00-16:00; Thu 01/28 10:30-12:30  [shift overlaps: excused]
+Nights that start after midnight (count as the previous day): LBJ GP overnight 10h starts 00:00; MHH T overnight 8h starts 00:30
+Pre-check: inputs look feasible.
+Model: 62 residents, 23,765 assignment decisions, 1,864,484 non-zeros. Engine: HiGHS, strategy: lns
+Greedy warm start: 0 of 964 shifts open (0s)
+Swap polish: 805 improving moves, 0 shifts open (60s)
+  pass 1  pod balance                        8.0 ->     0.0    45s
+  pass 1  isolated days off                 46.0 ->    26.0    65s
+  pass 1  extra / over-long night runs      20.0 ->    20.0    67s
+  pass 1  requests off missed               14.0 ->     9.0    16s
+  pass 2  isolated days off                 26.0 ->    24.0    16s
+  pass 2  extra / over-long night runs      20.0 ->    20.0    16s
+  pass 2  requests off missed                7.0 ->     0.0     6s
+  pass 3  isolated days off                 24.0 ->    23.0     8s
+Validator: 0 hard-rule violations, 0 open shifts, 0 residents under contract minimum
+Peak hours in any rolling 7 days: 60 (limit 60); tightest rest margin: 0h beyond the required rest
+  contract shortfall                 0.0   [optimal]
+  backward rotations                 0.0   [optimal]
+  day/evening/night balance          0.0   [optimal]
+  night runs too close               0.0   [optimal]
+  nights into vacation               0.0   [optimal]
+  night share over limit             0.0   [optimal]
+  pod balance                        0.0   [optimal]
+  isolated days off                 23.0   [best found]
+  extra / over-long night runs      21.0   [best found]
+  requests off missed                0.0   [optimal]
+Total time 302s; exact sub-solves: 233; moves rejected by the validator: 0
+Resident-days with two nights starting on the same calendar date: 30
+Times a resident was excused from academic time by a shift: 87

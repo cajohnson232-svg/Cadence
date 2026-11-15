@@ -1,0 +1,117 @@
+{
+ "tag": "10h+12h",
+ "lengths": [
+  10.0,
+  12.0
+ ],
+ "residents": 71,
+ "shifts": 992,
+ "per_day": [
+  34,
+  36
+ ],
+ "margin": 0.040322580645161255,
+ "decisions": 26397,
+ "academic": [
+  "Mon 01/04 10:30-12:30",
+  "Mon 01/11 10:00-13:30",
+  "Mon 01/18 13:30-17:00",
+  "Mon 01/25 14:00-16:00"
+ ],
+ "precheck_errors": [],
+ "violations": 0,
+ "open": 0,
+ "short": 0,
+ "duty": {
+  "peak_rolling_7day_hours": 60.0,
+  "smallest_rest_margin_hours": 0.0
+ },
+ "seconds": 297.11689949035645,
+ "soft": {
+  "contract shortfall": 0.0,
+  "backward rotations": 0.0,
+  "day/evening/night balance": 0.0,
+  "night runs too close": 1.0,
+  "nights into vacation": 0.0,
+  "night share over limit": 0.0,
+  "pod balance": 0.0,
+  "isolated days off": 4.0,
+  "extra / over-long night runs": 22.0,
+  "requests off missed": 14.0
+ },
+ "stages": [
+  [
+   "open shifts",
+   0.0,
+   0.0,
+   "optimal"
+  ],
+  [
+   "contract shortfall",
+   0.0,
+   0.0,
+   "optimal"
+  ],
+  [
+   "backward rotations",
+   0.0,
+   0.0,
+   "optimal"
+  ],
+  [
+   "day/evening/night balance",
+   0.0,
+   0.0,
+   "optimal"
+  ],
+  [
+   "night runs too close",
+   2.0,
+   1.0,
+   "best found"
+  ],
+  [
+   "nights into vacation",
+   1.0,
+   0.0,
+   "optimal"
+  ],
+  [
+   "night share over limit",
+   0.0,
+   0.0,
+   "optimal"
+  ],
+  [
+   "pod balance",
+   3.0,
+   0.0,
+   "optimal"
+  ],
+  [
+   "isolated days off",
+   28.0,
+   4.0,
+   "best found"
+  ],
+  [
+   "extra / over-long night runs",
+   23.0,
+   22.0,
+   "best found"
+  ],
+  [
+   "requests off missed",
+   20.0,
+   14.0,
+   "best found"
+  ]
+ ],
+ "solves": 263,
+ "model_validator_mismatch": [],
+ "rejected_by_validator": 0,
+ "academic_policy": "blocked",
+ "late_nights": false,
+ "two_nights_one_date": 0,
+ "excused": 0
+}

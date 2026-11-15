@@ -1,0 +1,19 @@
+# local settings and secrets: never in the repository
+.env
+.env.*
+!.env.example
+
+# installed packages and build output
+node_modules/
+.next/
+web/src/generated/
+*.tsbuildinfo
+next-env.d.ts
+__pycache__/
+*.pyc
+
+# scratch output
+/out/
+/deliver/
+/old/
+*.zip

@@ -1,0 +1,1958 @@
+{
+ "name": "8h+10h+12h block, 32+ shifts/day (seed 8)",
+ "start_date": "2027-01-04",
+ "n_days": 28,
+ "category_order": [
+  "day",
+  "evening",
+  "swing",
+  "night"
+ ],
+ "night_categories": [
+  "night"
+ ],
+ "balance_groups": {
+  "day": "day",
+  "evening": "evening",
+  "swing": "evening",
+  "night": "night"
+ },
+ "pod_pairs": [
+  [
+   "MHH",
+   "T",
+   "M"
+  ],
+  [
+   "LBJ",
+   "GP",
+   "CC"
+  ]
+ ],
+ "chief_time": [
+  {
+   "weekday": 3,
+   "start": "00:00",
+   "hours": 13
+  }
+ ],
+ "rules": {
+  "max_week_hours": 60,
+  "rest_ratio": 1.0,
+  "max_nights": 8,
+  "max_night_runs": 2,
+  "min_gap_between_night_runs": 7,
+  "max_night_fraction_pct": 45,
+  "soft_max_nights_in_run": 6,
+  "history_days": 7
+ },
+ "shift_templates": [
+  {
+   "name": "MHH T day 8h",
+   "site": "MHH",
+   "pod": "T",
+   "category": "day",
+   "start": "06:30",
+   "hours": 8,
+   "headcount": 2,
+   "min_pgy": 2,
+   "weekdays": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+   ],
+   "except_days": [
+    1,
+    8,
+    15,
+    22
+   ]
+  },
+  {
+   "name": "MHH T evening 8h",
+   "site": "MHH",
+   "pod": "T",
+   "category": "evening",
+   "start": "13:00",
+   "hours": 8,
+   "headcount": 3,
+   "min_pgy": 2,
+   "weekdays": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+   ],
+   "except_days": [
+    1,
+    8,
+    15,
+    22
+   ]
+  },
+  {
+   "name": "MHH T swing 8h",
+   "site": "MHH",
+   "pod": "T",
+   "category": "swing",
+   "start": "16:00",
+   "hours": 8,
+   "headcount": 1,
+   "min_pgy": 2,
+   "weekdays": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+   ],
+   "except_days": [
+    15
+   ]
+  },
+  {
+   "name": "MHH T night 8h",
+   "site": "MHH",
+   "pod": "T",
+   "category": "night",
+   "start": "21:30",
+   "hours": 8,
+   "headcount": 2,
+   "min_pgy": 2,
+   "weekdays": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+   ]
+  },
+  {
+   "name": "MHH M day 12h",
+   "site": "MHH",
+   "pod": "M",
+   "category": "day",
+   "start": "08:00",
+   "hours": 12,
+   "headcount": 4,
+   "min_pgy": 1,
+   "weekdays": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+   ],
+   "except_days": [
+    1,
+    8,
+    15,
+    22
+   ]
+  },
+  {
+   "name": "MHH M evening 12h",
+   "site": "MHH",
+   "pod": "M",
+   "category": "evening",
+   "start": "10:30",
+   "hours": 12,
+   "headcount": 2,
+   "min_pgy": 1,
+   "weekdays": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+   ],
+   "except_days": [
+    1,
+    8,
+    15,
+    22
+   ]
+  },
+  {
+   "name": "MHH M night 12h",
+   "site": "MHH",
+   "pod": "M",
+   "category": "night",
+   "start": "19:30",
+   "hours": 12,
+   "headcount": 2,
+   "min_pgy": 1,
+   "weekdays": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+   ]
+  },
+  {
+   "name": "LBJ GP day 8h",
+   "site": "LBJ",
+   "pod": "GP",
+   "category": "day",
+   "start": "07:30",
+   "hours": 8,
+   "headcount": 3,
+   "min_pgy": 1,
+   "weekdays": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+   ],
+   "except_days": [
+    1,
+    8,
+    15,
+    22
+   ]
+  },
+  {
+   "name": "LBJ GP evening 8h",
+   "site": "LBJ",
+   "pod": "GP",
+   "category": "evening",
+   "start": "14:30",
+   "hours": 8,
+   "headcount": 2,
+   "min_pgy": 1,
+   "weekdays": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+   ],
+   "except_days": [
+    1,
+    8,
+    15,
+    22
+   ]
+  },
+  {
+   "name": "LBJ GP swing 8h",
+   "site": "LBJ",
+   "pod": "GP",
+   "category": "swing",
+   "start": "17:30",
+   "hours": 8,
+   "headcount": 1,
+   "min_pgy": 1,
+   "weekdays": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+   ]
+  },
+  {
+   "name": "LBJ GP night 8h",
+   "site": "LBJ",
+   "pod": "GP",
+   "category": "night",
+   "start": "22:30",
+   "hours": 8,
+   "headcount": 2,
+   "min_pgy": 1,
+   "weekdays": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+   ]
+  },
+  {
+   "name": "LBJ CC day 10h",
+   "site": "LBJ",
+   "pod": "CC",
+   "category": "day",
+   "start": "08:00",
+   "hours": 10,
+   "headcount": 2,
+   "min_pgy": 1,
+   "weekdays": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+   ],
+   "except_days": [
+    1,
+    8,
+    15,
+    22
+   ]
+  },
+  {
+   "name": "LBJ CC evening 10h",
+   "site": "LBJ",
+   "pod": "CC",
+   "category": "evening",
+   "start": "11:30",
+   "hours": 10,
+   "headcount": 2,
+   "min_pgy": 1,
+   "weekdays": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+   ],
+   "except_days": [
+    1,
+    8,
+    15,
+    22
+   ]
+  },
+  {
+   "name": "LBJ CC swing 10h",
+   "site": "LBJ",
+   "pod": "CC",
+   "category": "swing",
+   "start": "16:30",
+   "hours": 10,
+   "headcount": 1,
+   "min_pgy": 1,
+   "weekdays": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+   ],
+   "except_days": [
+    15
+   ]
+  },
+  {
+   "name": "LBJ CC night 10h",
+   "site": "LBJ",
+   "pod": "CC",
+   "category": "night",
+   "start": "20:00",
+   "hours": 10,
+   "headcount": 3,
+   "min_pgy": 1,
+   "weekdays": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+   ]
+  },
+  {
+   "name": "MHH M fast-track 8h",
+   "site": "MHH",
+   "pod": "M",
+   "category": "evening",
+   "start": "10:30",
+   "hours": 8,
+   "headcount": 2,
+   "min_pgy": 1,
+   "weekdays": [
+    0,
+    1,
+    2,
+    3,
+    4
+   ],
+   "except_days": [
+    1,
+    8,
+    15,
+    22
+   ]
+  },
+  {
+   "name": "MHH T day 8h (after academic)",
+   "site": "MHH",
+   "pod": "T",
+   "category": "evening",
+   "start": "15:00",
+   "hours": 8,
+   "headcount": 2,
+   "min_pgy": 2,
+   "only_days": [
+    1
+   ]
+  },
+  {
+   "name": "MHH T evening 8h (after academic)",
+   "site": "MHH",
+   "pod": "T",
+   "category": "evening",
+   "start": "15:00",
+   "hours": 8,
+   "headcount": 3,
+   "min_pgy": 2,
+   "only_days": [
+    1
+   ]
+  },
+  {
+   "name": "MHH M day 12h (after academic)",
+   "site": "MHH",
+   "pod": "M",
+   "category": "evening",
+   "start": "15:00",
+   "hours": 12,
+   "headcount": 4,
+   "min_pgy": 1,
+   "only_days": [
+    1
+   ]
+  },
+  {
+   "name": "MHH M evening 12h (after academic)",
+   "site": "MHH",
+   "pod": "M",
+   "category": "evening",
+   "start": "15:00",
+   "hours": 12,
+   "headcount": 2,
+   "min_pgy": 1,
+   "only_days": [
+    1
+   ]
+  },
+  {
+   "name": "LBJ GP day 8h (after academic)",
+   "site": "LBJ",
+   "pod": "GP",
+   "category": "evening",
+   "start": "15:00",
+   "hours": 8,
+   "headcount": 3,
+   "min_pgy": 1,
+   "only_days": [
+    1
+   ]
+  },
+  {
+   "name": "LBJ GP evening 8h (after academic)",
+   "site": "LBJ",
+   "pod": "GP",
+   "category": "evening",
+   "start": "15:00",
+   "hours": 8,
+   "headcount": 2,
+   "min_pgy": 1,
+   "only_days": [
+    1
+   ]
+  },
+  {
+   "name": "LBJ CC day 10h (after academic)",
+   "site": "LBJ",
+   "pod": "CC",
+   "category": "evening",
+   "start": "15:00",
+   "hours": 10,
+   "headcount": 2,
+   "min_pgy": 1,
+   "only_days": [
+    1
+   ]
+  },
+  {
+   "name": "LBJ CC evening 10h (after academic)",
+   "site": "LBJ",
+   "pod": "CC",
+   "category": "evening",
+   "start": "15:00",
+   "hours": 10,
+   "headcount": 2,
+   "min_pgy": 1,
+   "only_days": [
+    1
+   ]
+  },
+  {
+   "name": "MHH M fast-track 8h (after academic)",
+   "site": "MHH",
+   "pod": "M",
+   "category": "evening",
+   "start": "15:00",
+   "hours": 8,
+   "headcount": 2,
+   "min_pgy": 1,
+   "only_days": [
+    1
+   ]
+  },
+  {
+   "name": "MHH T day 8h (after academic)",
+   "site": "MHH",
+   "pod": "T",
+   "category": "evening",
+   "start": "15:00",
+   "hours": 8,
+   "headcount": 2,
+   "min_pgy": 2,
+   "only_days": [
+    8
+   ]
+  },
+  {
+   "name": "MHH T evening 8h (after academic)",
+   "site": "MHH",
+   "pod": "T",
+   "category": "evening",
+   "start": "15:00",
+   "hours": 8,
+   "headcount": 3,
+   "min_pgy": 2,
+   "only_days": [
+    8
+   ]
+  },
+  {
+   "name": "MHH M day 12h (after academic)",
+   "site": "MHH",
+   "pod": "M",
+   "category": "evening",
+   "start": "15:00",
+   "hours": 12,
+   "headcount": 4,
+   "min_pgy": 1,
+   "only_days": [
+    8
+   ]
+  },
+  {
+   "name": "MHH M evening 12h (after academic)",
+   "site": "MHH",
+   "pod": "M",
+   "category": "evening",
+   "start": "15:00",
+   "hours": 12,
+   "headcount": 2,
+   "min_pgy": 1,
+   "only_days": [
+    8
+   ]
+  },
+  {
+   "name": "LBJ GP day 8h (after academic)",
+   "site": "LBJ",
+   "pod": "GP",
+   "category": "evening",
+   "start": "15:00",
+   "hours": 8,
+   "headcount": 3,
+   "min_pgy": 1,
+   "only_days": [
+    8
+   ]
+  },
+  {
+   "name": "LBJ GP evening 8h (after academic)",
+   "site": "LBJ",
+   "pod": "GP",
+   "category": "evening",
+   "start": "15:00",
+   "hours": 8,
+   "headcount": 2,
+   "min_pgy": 1,
+   "only_days": [
+    8
+   ]
+  },
+  {
+   "name": "LBJ CC day 10h (after academic)",
+   "site": "LBJ",
+   "pod": "CC",
+   "category": "evening",
+   "start": "15:00",
+   "hours": 10,
+   "headcount": 2,
+   "min_pgy": 1,
+   "only_days": [
+    8
+   ]
+  },
+  {
+   "name": "LBJ CC evening 10h (after academic)",
+   "site": "LBJ",
+   "pod": "CC",
+   "category": "evening",
+   "start": "15:00",
+   "hours": 10,
+   "headcount": 2,
+   "min_pgy": 1,
+   "only_days": [
+    8
+   ]
+  },
+  {
+   "name": "MHH M fast-track 8h (after academic)",
+   "site": "MHH",
+   "pod": "M",
+   "category": "evening",
+   "start": "15:00",
+   "hours": 8,
+   "headcount": 2,
+   "min_pgy": 1,
+   "only_days": [
+    8
+   ]
+  },
+  {
+   "name": "MHH T day 8h (after academic)",
+   "site": "MHH",
+   "pod": "T",
+   "category": "evening",
+   "start": "17:00",
+   "hours": 8,
+   "headcount": 2,
+   "min_pgy": 2,
+   "only_days": [
+    15
+   ]
+  },
+  {
+   "name": "MHH T evening 8h (after academic)",
+   "site": "MHH",
+   "pod": "T",
+   "category": "evening",
+   "start": "17:00",
+   "hours": 8,
+   "headcount": 3,
+   "min_pgy": 2,
+   "only_days": [
+    15
+   ]
+  },
+  {
+   "name": "MHH T swing 8h (after academic)",
+   "site": "MHH",
+   "pod": "T",
+   "category": "swing",
+   "start": "17:00",
+   "hours": 8,
+   "headcount": 1,
+   "min_pgy": 2,
+   "only_days": [
+    15
+   ]
+  },
+  {
+   "name": "MHH M day 12h (after academic)",
+   "site": "MHH",
+   "pod": "M",
+   "category": "evening",
+   "start": "17:00",
+   "hours": 12,
+   "headcount": 4,
+   "min_pgy": 1,
+   "only_days": [
+    15
+   ]
+  },
+  {
+   "name": "MHH M evening 12h (after academic)",
+   "site": "MHH",
+   "pod": "M",
+   "category": "evening",
+   "start": "17:00",
+   "hours": 12,
+   "headcount": 2,
+   "min_pgy": 1,
+   "only_days": [
+    15
+   ]
+  },
+  {
+   "name": "LBJ GP day 8h (after academic)",
+   "site": "LBJ",
+   "pod": "GP",
+   "category": "evening",
+   "start": "17:00",
+   "hours": 8,
+   "headcount": 3,
+   "min_pgy": 1,
+   "only_days": [
+    15
+   ]
+  },
+  {
+   "name": "LBJ GP evening 8h (after academic)",
+   "site": "LBJ",
+   "pod": "GP",
+   "category": "evening",
+   "start": "17:00",
+   "hours": 8,
+   "headcount": 2,
+   "min_pgy": 1,
+   "only_days": [
+    15
+   ]
+  },
+  {
+   "name": "LBJ CC day 10h (after academic)",
+   "site": "LBJ",
+   "pod": "CC",
+   "category": "evening",
+   "start": "17:00",
+   "hours": 10,
+   "headcount": 2,
+   "min_pgy": 1,
+   "only_days": [
+    15
+   ]
+  },
+  {
+   "name": "LBJ CC evening 10h (after academic)",
+   "site": "LBJ",
+   "pod": "CC",
+   "category": "evening",
+   "start": "17:00",
+   "hours": 10,
+   "headcount": 2,
+   "min_pgy": 1,
+   "only_days": [
+    15
+   ]
+  },
+  {
+   "name": "LBJ CC swing 10h (after academic)",
+   "site": "LBJ",
+   "pod": "CC",
+   "category": "swing",
+   "start": "17:00",
+   "hours": 10,
+   "headcount": 1,
+   "min_pgy": 1,
+   "only_days": [
+    15
+   ]
+  },
+  {
+   "name": "MHH M fast-track 8h (after academic)",
+   "site": "MHH",
+   "pod": "M",
+   "category": "evening",
+   "start": "17:00",
+   "hours": 8,
+   "headcount": 2,
+   "min_pgy": 1,
+   "only_days": [
+    15
+   ]
+  },
+  {
+   "name": "MHH T day 8h (after academic)",
+   "site": "MHH",
+   "pod": "T",
+   "category": "evening",
+   "start": "15:00",
+   "hours": 8,
+   "headcount": 2,
+   "min_pgy": 2,
+   "only_days": [
+    22
+   ]
+  },
+  {
+   "name": "MHH T evening 8h (after academic)",
+   "site": "MHH",
+   "pod": "T",
+   "category": "evening",
+   "start": "15:00",
+   "hours": 8,
+   "headcount": 3,
+   "min_pgy": 2,
+   "only_days": [
+    22
+   ]
+  },
+  {
+   "name": "MHH M day 12h (after academic)",
+   "site": "MHH",
+   "pod": "M",
+   "category": "evening",
+   "start": "15:00",
+   "hours": 12,
+   "headcount": 4,
+   "min_pgy": 1,
+   "only_days": [
+    22
+   ]
+  },
+  {
+   "name": "MHH M evening 12h (after academic)",
+   "site": "MHH",
+   "pod": "M",
+   "category": "evening",
+   "start": "15:00",
+   "hours": 12,
+   "headcount": 2,
+   "min_pgy": 1,
+   "only_days": [
+    22
+   ]
+  },
+  {
+   "name": "LBJ GP day 8h (after academic)",
+   "site": "LBJ",
+   "pod": "GP",
+   "category": "evening",
+   "start": "15:00",
+   "hours": 8,
+   "headcount": 3,
+   "min_pgy": 1,
+   "only_days": [
+    22
+   ]
+  },
+  {
+   "name": "LBJ GP evening 8h (after academic)",
+   "site": "LBJ",
+   "pod": "GP",
+   "category": "evening",
+   "start": "15:00",
+   "hours": 8,
+   "headcount": 2,
+   "min_pgy": 1,
+   "only_days": [
+    22
+   ]
+  },
+  {
+   "name": "LBJ CC day 10h (after academic)",
+   "site": "LBJ",
+   "pod": "CC",
+   "category": "evening",
+   "start": "15:00",
+   "hours": 10,
+   "headcount": 2,
+   "min_pgy": 1,
+   "only_days": [
+    22
+   ]
+  },
+  {
+   "name": "LBJ CC evening 10h (after academic)",
+   "site": "LBJ",
+   "pod": "CC",
+   "category": "evening",
+   "start": "15:00",
+   "hours": 10,
+   "headcount": 2,
+   "min_pgy": 1,
+   "only_days": [
+    22
+   ]
+  },
+  {
+   "name": "MHH M fast-track 8h (after academic)",
+   "site": "MHH",
+   "pod": "M",
+   "category": "evening",
+   "start": "15:00",
+   "hours": 8,
+   "headcount": 2,
+   "min_pgy": 1,
+   "only_days": [
+    22
+   ]
+  }
+ ],
+ "academic_time": [
+  {
+   "name": "Academic time",
+   "day": -6,
+   "start": "13:30",
+   "hours": 2.0,
+   "if_shift_overlaps": "blocked"
+  },
+  {
+   "name": "Academic time",
+   "day": 1,
+   "start": "12:00",
+   "hours": 3.0,
+   "if_shift_overlaps": "blocked"
+  },
+  {
+   "name": "Academic time",
+   "day": 8,
+   "start": "11:30",
+   "hours": 3.5,
+   "if_shift_overlaps": "blocked"
+  },
+  {
+   "name": "Academic time",
+   "day": 15,
+   "start": "13:30",
+   "hours": 3.5,
+   "if_shift_overlaps": "blocked"
+  },
+  {
+   "name": "Academic time",
+   "day": 22,
+   "start": "13:00",
+   "hours": 2.0,
+   "if_shift_overlaps": "blocked"
+  }
+ ],
+ "residents": [
+  {
+   "id": "r01",
+   "name": "Avery",
+   "pgy": 1,
+   "chief_days": false,
+   "vacation": [
+    10,
+    11,
+    12,
+    13,
+    14,
+    15
+   ],
+   "mandatory_off": [],
+   "requests_off": {},
+   "shifts_max": 14,
+   "shifts_min": 12
+  },
+  {
+   "id": "r02",
+   "name": "Diaz",
+   "pgy": 2,
+   "chief_days": false,
+   "vacation": [],
+   "mandatory_off": [],
+   "requests_off": {},
+   "shifts_max": 17,
+   "shifts_min": 15
+  },
+  {
+   "id": "r03",
+   "name": "Wolfe",
+   "pgy": 3,
+   "chief_days": true,
+   "vacation": [],
+   "mandatory_off": [],
+   "requests_off": {
+    "9": 3
+   },
+   "shifts_max": 13,
+   "shifts_min": 11
+  },
+  {
+   "id": "r04",
+   "name": "Zane",
+   "pgy": 1,
+   "chief_days": false,
+   "vacation": [
+    21,
+    22,
+    23,
+    24,
+    25
+   ],
+   "mandatory_off": [],
+   "requests_off": {},
+   "shifts_max": 15,
+   "shifts_min": 13
+  },
+  {
+   "id": "r05",
+   "name": "Vega",
+   "pgy": 2,
+   "chief_days": false,
+   "vacation": [],
+   "mandatory_off": [],
+   "requests_off": {},
+   "shifts_max": 17,
+   "shifts_min": 15
+  },
+  {
+   "id": "r06",
+   "name": "Flores",
+   "pgy": 3,
+   "chief_days": true,
+   "vacation": [],
+   "mandatory_off": [],
+   "requests_off": {},
+   "shifts_max": 13,
+   "shifts_min": 11
+  },
+  {
+   "id": "r07",
+   "name": "Udoka",
+   "pgy": 1,
+   "chief_days": false,
+   "vacation": [
+    4,
+    5,
+    6,
+    7,
+    8
+   ],
+   "mandatory_off": [],
+   "requests_off": {},
+   "shifts_max": 15,
+   "shifts_min": 13
+  },
+  {
+   "id": "r08",
+   "name": "Jain",
+   "pgy": 2,
+   "chief_days": false,
+   "vacation": [],
+   "mandatory_off": [],
+   "requests_off": {},
+   "shifts_max": 17,
+   "shifts_min": 15
+  },
+  {
+   "id": "r09",
+   "name": "Hart",
+   "pgy": 3,
+   "chief_days": false,
+   "vacation": [],
+   "mandatory_off": [],
+   "requests_off": {},
+   "shifts_max": 16,
+   "shifts_min": 14
+  },
+  {
+   "id": "r10",
+   "name": "Chen",
+   "pgy": 1,
+   "chief_days": false,
+   "vacation": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+   ],
+   "mandatory_off": [],
+   "requests_off": {},
+   "shifts_max": 14,
+   "shifts_min": 12
+  },
+  {
+   "id": "r11",
+   "name": "Patel",
+   "pgy": 2,
+   "chief_days": false,
+   "vacation": [],
+   "mandatory_off": [],
+   "requests_off": {
+    "13": 1,
+    "14": 1
+   },
+   "shifts_max": 17,
+   "shifts_min": 15
+  },
+  {
+   "id": "r12",
+   "name": "Xu",
+   "pgy": 3,
+   "chief_days": false,
+   "vacation": [],
+   "mandatory_off": [],
+   "requests_off": {},
+   "shifts_max": 16,
+   "shifts_min": 14
+  },
+  {
+   "id": "r13",
+   "name": "Okafor",
+   "pgy": 1,
+   "chief_days": false,
+   "vacation": [],
+   "mandatory_off": [],
+   "requests_off": {
+    "14": 3,
+    "20": 2,
+    "4": 3
+   },
+   "shifts_max": 18,
+   "shifts_min": 16
+  },
+  {
+   "id": "r14",
+   "name": "Irwin",
+   "pgy": 2,
+   "chief_days": false,
+   "vacation": [],
+   "mandatory_off": [],
+   "requests_off": {},
+   "shifts_max": 17,
+   "shifts_min": 15
+  },
+  {
+   "id": "r15",
+   "name": "Ortiz",
+   "pgy": 3,
+   "chief_days": false,
+   "vacation": [],
+   "mandatory_off": [],
+   "requests_off": {
+    "1": 2
+   },
+   "shifts_max": 16,
+   "shifts_min": 14
+  },
+  {
+   "id": "r16",
+   "name": "Cole",
+   "pgy": 1,
+   "chief_days": false,
+   "vacation": [
+    0,
+    1,
+    2,
+    3,
+    4
+   ],
+   "mandatory_off": [],
+   "requests_off": {},
+   "shifts_max": 15,
+   "shifts_min": 13
+  },
+  {
+   "id": "r17",
+   "name": "Baker",
+   "pgy": 2,
+   "chief_days": false,
+   "vacation": [
+    13,
+    14,
+    15,
+    16,
+    17,
+    18
+   ],
+   "mandatory_off": [],
+   "requests_off": {},
+   "shifts_max": 13,
+   "shifts_min": 11
+  },
+  {
+   "id": "r18",
+   "name": "Ahmed",
+   "pgy": 3,
+   "chief_days": false,
+   "vacation": [],
+   "mandatory_off": [],
+   "requests_off": {},
+   "shifts_max": 16,
+   "shifts_min": 14
+  },
+  {
+   "id": "r19",
+   "name": "Unger",
+   "pgy": 1,
+   "chief_days": false,
+   "vacation": [],
+   "mandatory_off": [],
+   "requests_off": {},
+   "shifts_max": 18,
+   "shifts_min": 16
+  },
+  {
+   "id": "r20",
+   "name": "Eaton",
+   "pgy": 2,
+   "chief_days": false,
+   "vacation": [],
+   "mandatory_off": [],
+   "requests_off": {
+    "19": 1,
+    "9": 3
+   },
+   "shifts_max": 17,
+   "shifts_min": 15
+  },
+  {
+   "id": "r21",
+   "name": "Khan",
+   "pgy": 3,
+   "chief_days": false,
+   "vacation": [],
+   "mandatory_off": [],
+   "requests_off": {},
+   "shifts_max": 16,
+   "shifts_min": 14
+  },
+  {
+   "id": "r22",
+   "name": "Adams",
+   "pgy": 1,
+   "chief_days": false,
+   "vacation": [],
+   "mandatory_off": [],
+   "requests_off": {},
+   "shifts_max": 18,
+   "shifts_min": 16
+  },
+  {
+   "id": "r23",
+   "name": "Owens",
+   "pgy": 2,
+   "chief_days": false,
+   "vacation": [],
+   "mandatory_off": [],
+   "requests_off": {},
+   "shifts_max": 17,
+   "shifts_min": 15
+  },
+  {
+   "id": "r24",
+   "name": "York",
+   "pgy": 3,
+   "chief_days": false,
+   "vacation": [],
+   "mandatory_off": [],
+   "requests_off": {},
+   "shifts_max": 16,
+   "shifts_min": 14
+  },
+  {
+   "id": "r25",
+   "name": "Blake",
+   "pgy": 1,
+   "chief_days": false,
+   "vacation": [],
+   "mandatory_off": [],
+   "requests_off": {},
+   "shifts_max": 18,
+   "shifts_min": 16
+  },
+  {
+   "id": "r26",
+   "name": "Reyes",
+   "pgy": 2,
+   "chief_days": false,
+   "vacation": [
+    11,
+    12,
+    13,
+    14,
+    15,
+    16
+   ],
+   "mandatory_off": [],
+   "requests_off": {},
+   "shifts_max": 13,
+   "shifts_min": 11
+  },
+  {
+   "id": "r27",
+   "name": "Drake",
+   "pgy": 3,
+   "chief_days": false,
+   "vacation": [],
+   "mandatory_off": [],
+   "requests_off": {},
+   "shifts_max": 16,
+   "shifts_min": 14
+  },
+  {
+   "id": "r28",
+   "name": "Quinn",
+   "pgy": 1,
+   "chief_days": false,
+   "vacation": [],
+   "mandatory_off": [],
+   "requests_off": {},
+   "shifts_max": 18,
+   "shifts_min": 16
+  },
+  {
+   "id": "r29",
+   "name": "Bell",
+   "pgy": 2,
+   "chief_days": false,
+   "vacation": [],
+   "mandatory_off": [],
+   "requests_off": {},
+   "shifts_max": 17,
+   "shifts_min": 15
+  },
+  {
+   "id": "r30",
+   "name": "Lang",
+   "pgy": 3,
+   "chief_days": false,
+   "vacation": [],
+   "mandatory_off": [],
+   "requests_off": {
+    "16": 2,
+    "26": 1,
+    "2": 1
+   },
+   "shifts_max": 16,
+   "shifts_min": 14
+  },
+  {
+   "id": "r31",
+   "name": "Zhang",
+   "pgy": 1,
+   "chief_days": false,
+   "vacation": [],
+   "mandatory_off": [],
+   "requests_off": {},
+   "shifts_max": 18,
+   "shifts_min": 16
+  },
+  {
+   "id": "r32",
+   "name": "Voss",
+   "pgy": 2,
+   "chief_days": false,
+   "vacation": [],
+   "mandatory_off": [],
+   "requests_off": {},
+   "shifts_max": 17,
+   "shifts_min": 15
+  },
+  {
+   "id": "r33",
+   "name": "Novak",
+   "pgy": 3,
+   "chief_days": false,
+   "vacation": [],
+   "mandatory_off": [],
+   "requests_off": {},
+   "shifts_max": 16,
+   "shifts_min": 14
+  },
+  {
+   "id": "r34",
+   "name": "Engel",
+   "pgy": 1,
+   "chief_days": false,
+   "vacation": [],
+   "mandatory_off": [],
+   "requests_off": {},
+   "shifts_max": 18,
+   "shifts_min": 16
+  },
+  {
+   "id": "r35",
+   "name": "Hale",
+   "pgy": 2,
+   "chief_days": false,
+   "vacation": [],
+   "mandatory_off": [],
+   "requests_off": {
+    "23": 1,
+    "14": 3,
+    "7": 3
+   },
+   "shifts_max": 17,
+   "shifts_min": 15
+  },
+  {
+   "id": "r36",
+   "name": "Rossi",
+   "pgy": 3,
+   "chief_days": false,
+   "vacation": [],
+   "mandatory_off": [],
+   "requests_off": {},
+   "shifts_max": 16,
+   "shifts_min": 14
+  },
+  {
+   "id": "r37",
+   "name": "Jones",
+   "pgy": 1,
+   "chief_days": false,
+   "vacation": [],
+   "mandatory_off": [],
+   "requests_off": {},
+   "shifts_max": 18,
+   "shifts_min": 16
+  },
+  {
+   "id": "r38",
+   "name": "Tran",
+   "pgy": 2,
+   "chief_days": false,
+   "vacation": [],
+   "mandatory_off": [],
+   "requests_off": {},
+   "shifts_max": 17,
+   "shifts_min": 15
+  },
+  {
+   "id": "r39",
+   "name": "Gill",
+   "pgy": 3,
+   "chief_days": false,
+   "vacation": [],
+   "mandatory_off": [],
+   "requests_off": {},
+   "shifts_max": 16,
+   "shifts_min": 14
+  },
+  {
+   "id": "r40",
+   "name": "Grant",
+   "pgy": 1,
+   "chief_days": false,
+   "vacation": [],
+   "mandatory_off": [],
+   "requests_off": {},
+   "shifts_max": 18,
+   "shifts_min": 16
+  },
+  {
+   "id": "r41",
+   "name": "Foster",
+   "pgy": 2,
+   "chief_days": false,
+   "vacation": [],
+   "mandatory_off": [],
+   "requests_off": {},
+   "shifts_max": 17,
+   "shifts_min": 15
+  },
+  {
+   "id": "r42",
+   "name": "Park",
+   "pgy": 3,
+   "chief_days": false,
+   "vacation": [
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17
+   ],
+   "mandatory_off": [],
+   "requests_off": {},
+   "shifts_max": 12,
+   "shifts_min": 10
+  },
+  {
+   "id": "r43",
+   "name": "Cruz",
+   "pgy": 1,
+   "chief_days": false,
+   "vacation": [],
+   "mandatory_off": [
+    2
+   ],
+   "requests_off": {},
+   "shifts_max": 18,
+   "shifts_min": 16
+  },
+  {
+   "id": "r44",
+   "name": "Usman",
+   "pgy": 2,
+   "chief_days": false,
+   "vacation": [],
+   "mandatory_off": [],
+   "requests_off": {},
+   "shifts_max": 17,
+   "shifts_min": 15
+  },
+  {
+   "id": "r45",
+   "name": "Torres",
+   "pgy": 3,
+   "chief_days": false,
+   "vacation": [],
+   "mandatory_off": [],
+   "requests_off": {},
+   "shifts_max": 16,
+   "shifts_min": 14
+  },
+  {
+   "id": "r46",
+   "name": "Ito",
+   "pgy": 1,
+   "chief_days": false,
+   "vacation": [],
+   "mandatory_off": [],
+   "requests_off": {},
+   "shifts_max": 18,
+   "shifts_min": 16
+  },
+  {
+   "id": "r47",
+   "name": "Garcia",
+   "pgy": 2,
+   "chief_days": false,
+   "vacation": [],
+   "mandatory_off": [],
+   "requests_off": {
+    "19": 1,
+    "11": 1,
+    "13": 2
+   },
+   "shifts_max": 17,
+   "shifts_min": 15
+  },
+  {
+   "id": "r48",
+   "name": "Mills",
+   "pgy": 3,
+   "chief_days": false,
+   "vacation": [],
+   "mandatory_off": [],
+   "requests_off": {},
+   "shifts_max": 16,
+   "shifts_min": 14
+  },
+  {
+   "id": "r49",
+   "name": "Dean",
+   "pgy": 1,
+   "chief_days": false,
+   "vacation": [
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13
+   ],
+   "mandatory_off": [],
+   "requests_off": {},
+   "shifts_max": 14,
+   "shifts_min": 12
+  },
+  {
+   "id": "r50",
+   "name": "Kim",
+   "pgy": 2,
+   "chief_days": false,
+   "vacation": [],
+   "mandatory_off": [],
+   "requests_off": {},
+   "shifts_max": 17,
+   "shifts_min": 15
+  },
+  {
+   "id": "r51",
+   "name": "Shah",
+   "pgy": 3,
+   "chief_days": false,
+   "vacation": [
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11
+   ],
+   "mandatory_off": [],
+   "requests_off": {},
+   "shifts_max": 12,
+   "shifts_min": 10
+  },
+  {
+   "id": "r52",
+   "name": "Brooks",
+   "pgy": 1,
+   "chief_days": false,
+   "vacation": [],
+   "mandatory_off": [],
+   "requests_off": {},
+   "shifts_max": 18,
+   "shifts_min": 16
+  },
+  {
+   "id": "r53",
+   "name": "Walker",
+   "pgy": 2,
+   "chief_days": false,
+   "vacation": [],
+   "mandatory_off": [],
+   "requests_off": {},
+   "shifts_max": 17,
+   "shifts_min": 15
+  },
+  {
+   "id": "r54",
+   "name": "James",
+   "pgy": 3,
+   "chief_days": false,
+   "vacation": [],
+   "mandatory_off": [],
+   "requests_off": {
+    "6": 1,
+    "13": 1
+   },
+   "shifts_max": 16,
+   "shifts_min": 14
+  },
+  {
+   "id": "r55",
+   "name": "Webb",
+   "pgy": 1,
+   "chief_days": false,
+   "vacation": [],
+   "mandatory_off": [],
+   "requests_off": {},
+   "shifts_max": 18,
+   "shifts_min": 16
+  },
+  {
+   "id": "r56",
+   "name": "Castro",
+   "pgy": 2,
+   "chief_days": false,
+   "vacation": [],
+   "mandatory_off": [],
+   "requests_off": {
+    "18": 3,
+    "21": 2
+   },
+   "shifts_max": 17,
+   "shifts_min": 15
+  },
+  {
+   "id": "r57",
+   "name": "Gomez",
+   "pgy": 3,
+   "chief_days": false,
+   "vacation": [],
+   "mandatory_off": [],
+   "requests_off": {},
+   "shifts_max": 16,
+   "shifts_min": 14
+  },
+  {
+   "id": "r58",
+   "name": "Price",
+   "pgy": 1,
+   "chief_days": false,
+   "vacation": [],
+   "mandatory_off": [],
+   "requests_off": {},
+   "shifts_max": 18,
+   "shifts_min": 16
+  },
+  {
+   "id": "r59",
+   "name": "Vance",
+   "pgy": 2,
+   "chief_days": false,
+   "vacation": [],
+   "mandatory_off": [],
+   "requests_off": {},
+   "shifts_max": 17,
+   "shifts_min": 15
+  }
+ ],
+ "history": [
+  {
+   "resident": "r01",
+   "day": -4,
+   "start": "07:30",
+   "hours": 8,
+   "category": "day",
+   "name": "LBJ GP day 8h"
+  },
+  {
+   "resident": "r01",
+   "day": -3,
+   "start": "07:30",
+   "hours": 8,
+   "category": "day",
+   "name": "LBJ GP day 8h"
+  },
+  {
+   "resident": "r01",
+   "day": -2,
+   "start": "07:30",
+   "hours": 8,
+   "category": "day",
+   "name": "LBJ GP day 8h"
+  },
+  {
+   "resident": "r01",
+   "day": -1,
+   "start": "07:30",
+   "hours": 8,
+   "category": "day",
+   "name": "LBJ GP day 8h"
+  },
+  {
+   "resident": "r04",
+   "day": -4,
+   "start": "08:00",
+   "hours": 10,
+   "category": "day",
+   "name": "LBJ CC day 10h"
+  },
+  {
+   "resident": "r04",
+   "day": -3,
+   "start": "08:00",
+   "hours": 10,
+   "category": "day",
+   "name": "LBJ CC day 10h"
+  },
+  {
+   "resident": "r04",
+   "day": -2,
+   "start": "08:00",
+   "hours": 10,
+   "category": "day",
+   "name": "LBJ CC day 10h"
+  },
+  {
+   "resident": "r04",
+   "day": -1,
+   "start": "08:00",
+   "hours": 10,
+   "category": "day",
+   "name": "LBJ CC day 10h"
+  },
+  {
+   "resident": "r05",
+   "day": -3,
+   "start": "21:30",
+   "hours": 8,
+   "category": "night",
+   "name": "MHH T night 8h"
+  },
+  {
+   "resident": "r05",
+   "day": -2,
+   "start": "21:30",
+   "hours": 8,
+   "category": "night",
+   "name": "MHH T night 8h"
+  },
+  {
+   "resident": "r05",
+   "day": -1,
+   "start": "21:30",
+   "hours": 8,
+   "category": "night",
+   "name": "MHH T night 8h"
+  },
+  {
+   "resident": "r07",
+   "day": -3,
+   "start": "08:00",
+   "hours": 10,
+   "category": "day",
+   "name": "LBJ CC day 10h"
+  },
+  {
+   "resident": "r07",
+   "day": -2,
+   "start": "08:00",
+   "hours": 10,
+   "category": "day",
+   "name": "LBJ CC day 10h"
+  },
+  {
+   "resident": "r07",
+   "day": -1,
+   "start": "08:00",
+   "hours": 10,
+   "category": "day",
+   "name": "LBJ CC day 10h"
+  },
+  {
+   "resident": "r09",
+   "day": -2,
+   "start": "20:00",
+   "hours": 10,
+   "category": "night",
+   "name": "LBJ CC night 10h"
+  },
+  {
+   "resident": "r09",
+   "day": -1,
+   "start": "20:00",
+   "hours": 10,
+   "category": "night",
+   "name": "LBJ CC night 10h"
+  },
+  {
+   "resident": "r21",
+   "day": -4,
+   "start": "06:30",
+   "hours": 8,
+   "category": "day",
+   "name": "MHH T day 8h"
+  },
+  {
+   "resident": "r21",
+   "day": -3,
+   "start": "06:30",
+   "hours": 8,
+   "category": "day",
+   "name": "MHH T day 8h"
+  },
+  {
+   "resident": "r21",
+   "day": -2,
+   "start": "06:30",
+   "hours": 8,
+   "category": "day",
+   "name": "MHH T day 8h"
+  },
+  {
+   "resident": "r21",
+   "day": -1,
+   "start": "06:30",
+   "hours": 8,
+   "category": "day",
+   "name": "MHH T day 8h"
+  },
+  {
+   "resident": "r34",
+   "day": -3,
+   "start": "20:00",
+   "hours": 10,
+   "category": "night",
+   "name": "LBJ CC night 10h"
+  },
+  {
+   "resident": "r34",
+   "day": -2,
+   "start": "20:00",
+   "hours": 10,
+   "category": "night",
+   "name": "LBJ CC night 10h"
+  },
+  {
+   "resident": "r34",
+   "day": -1,
+   "start": "20:00",
+   "hours": 10,
+   "category": "night",
+   "name": "LBJ CC night 10h"
+  },
+  {
+   "resident": "r37",
+   "day": -3,
+   "start": "20:00",
+   "hours": 10,
+   "category": "night",
+   "name": "LBJ CC night 10h"
+  },
+  {
+   "resident": "r37",
+   "day": -2,
+   "start": "20:00",
+   "hours": 10,
+   "category": "night",
+   "name": "LBJ CC night 10h"
+  },
+  {
+   "resident": "r37",
+   "day": -1,
+   "start": "20:00",
+   "hours": 10,
+   "category": "night",
+   "name": "LBJ CC night 10h"
+  },
+  {
+   "resident": "r42",
+   "day": -5,
+   "start": "07:30",
+   "hours": 8,
+   "category": "day",
+   "name": "LBJ GP day 8h"
+  },
+  {
+   "resident": "r42",
+   "day": -4,
+   "start": "07:30",
+   "hours": 8,
+   "category": "day",
+   "name": "LBJ GP day 8h"
+  },
+  {
+   "resident": "r42",
+   "day": -3,
+   "start": "07:30",
+   "hours": 8,
+   "category": "day",
+   "name": "LBJ GP day 8h"
+  },
+  {
+   "resident": "r42",
+   "day": -2,
+   "start": "07:30",
+   "hours": 8,
+   "category": "day",
+   "name": "LBJ GP day 8h"
+  },
+  {
+   "resident": "r57",
+   "day": -2,
+   "start": "21:30",
+   "hours": 8,
+   "category": "night",
+   "name": "MHH T night 8h"
+  },
+  {
+   "resident": "r57",
+   "day": -1,
+   "start": "21:30",
+   "hours": 8,
+   "category": "night",
+   "name": "MHH T night 8h"
+  }
+ ]
+}

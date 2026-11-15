@@ -1,0 +1,678 @@
+// Cadence data model. PostgreSQL + Prisma.
+//
+// Conventions
+//   * Every program (residency) is a tenant: top-level tables carry programId.
+//   * Dates without a time are @db.Date. Times of day are minutes after midnight
+//     (startMinute) plus a length (durationMinutes); the end time is derived, so
+//     shifts that cross midnight need no special handling.
+//   * Days of week are 0 = Monday ... 6 = Sunday.
+//   * Nothing that is referenced is ever deleted: rows have archivedAt instead,
+//     and the foreign keys refuse the delete.
+//   * A few rules Prisma cannot express (no overlapping assignments, end >= start,
+//     ...) live in constraints.sql and are applied as a migration.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ───────────────────────────── Tenancy and access ─────────────────────────────
+
+model Program {
+  id                           String    @id @default(cuid())
+  name                         String
+  shortCode                    String    @unique
+  timezone                     String    @default("America/Chicago")
+  defaultRequestAllowance      Int       @default(4) // days of requests off per participant per interval
+  defaultHighPriorityAllowance Int       @default(1)
+  requestsRequireApproval      Boolean   @default(true) // off = a resident's request counts as soon as it is submitted
+  createdAt                    DateTime  @default(now())
+  archivedAt                   DateTime?
+
+  memberships         Membership[]
+  institutions        Institution[]
+  roles               Role[]
+  participants        Participant[]
+  shiftCategories     ShiftCategory[]
+  shifts              Shift[]
+  intervals           Interval[]
+  assignments         Assignment[]
+  specialStaffingDays SpecialStaffingDay[]
+  academicDays        AcademicDay[]
+  timeOff             TimeOff[]
+  shiftAdjustments    ShiftAdjustment[]
+  rules               Rule[]
+  auditLog            AuditLog[]
+}
+
+// A login. Authentication tables (sessions, OAuth accounts) are added by the auth library.
+model User {
+  id             String    @id @default(cuid())
+  email          String    @unique // always lower case (constraints.sql)
+  name           String
+  createdAt      DateTime  @default(now())
+  passwordHash   String? // scrypt. Empty until the person accepts an invitation
+  passwordSetAt  DateTime?
+  sessionVersion Int       @default(0) // raised to sign the person out everywhere
+  lastLoginAt    DateTime?
+  disabledAt     DateTime? // sign-in switched off by an administrator
+
+  accessLinks        AccessLink[]
+  accessLinksCreated AccessLink[] @relation("accessLinkCreator")
+  memberships        Membership[]
+  timeOffCreated     TimeOff[]
+  adjustmentsCreated ShiftAdjustment[]
+  rulesCreated       Rule[]
+  schedulesCreated   Schedule[]
+  auditLog           AuditLog[]
+}
+
+enum AccessLinkPurpose {
+  INVITE
+  RESET
+}
+
+// A one-time link that lets a person choose a password: an invitation, or a reset issued by an
+// administrator. Only a fingerprint of the link is stored; the link itself is shown once.
+model AccessLink {
+  id          String            @id @default(cuid())
+  userId      String
+  purpose     AccessLinkPurpose
+  tokenHash   String            @unique
+  createdById String?
+  createdAt   DateTime          @default(now())
+  expiresAt   DateTime
+  usedAt      DateTime?
+
+  user      User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdBy User? @relation("accessLinkCreator", fields: [createdById], references: [id])
+
+  @@index([userId])
+}
+
+// Failed sign-in attempts, counted per email address and per network address, to slow down guessing.
+model SignInThrottle {
+  key         String    @id // "email:<address>" or "ip:<address>"
+  failures    Int       @default(0)
+  windowStart DateTime  @default(now())
+  lockedUntil DateTime?
+}
+
+enum AccessLevel {
+  ADMIN // edits everything
+  CHIEF // edits everything
+  RESIDENT // sees own inputs, submits own requests off
+}
+
+// What a user may do in a program, and which participant they are (if any).
+model Membership {
+  id            String      @id @default(cuid())
+  programId     String
+  userId        String
+  access        AccessLevel
+  participantId String?     @unique
+
+  program     Program      @relation(fields: [programId], references: [id])
+  user        User         @relation(fields: [userId], references: [id])
+  participant Participant? @relation(fields: [participantId], references: [id])
+
+  @@unique([programId, userId])
+}
+
+// ─────────────────────────────────── Setup ───────────────────────────────────
+
+model Institution {
+  id         String    @id @default(cuid())
+  programId  String
+  name       String
+  shortCode  String
+  timezone   String
+  address    String?
+  active     Boolean   @default(true)
+  archivedAt DateTime?
+
+  program             Program                 @relation(fields: [programId], references: [id])
+  areas               Area[]
+  shifts              Shift[]
+  assignments         AssignmentInstitution[]
+  specialStaffingDays SpecialStaffingDay[]
+  rules               Rule[]
+  scheduledShifts     ScheduledShift[]
+
+  @@unique([programId, shortCode])
+}
+
+// A pod or zone inside an institution (e.g. Trauma / Medical, GP / CC). Optional.
+model Area {
+  id            String @id @default(cuid())
+  institutionId String
+  name          String
+  shortCode     String
+
+  institution   Institution            @relation(fields: [institutionId], references: [id])
+  shifts        Shift[]
+  specialShifts SpecialStaffingShift[]
+
+  @@unique([institutionId, shortCode])
+}
+
+// Scheduling role: PGY-1, PGY-2, PGY-3, Attending, Fellow, Off-service rotator ...
+model Role {
+  id               String    @id @default(cuid())
+  programId        String
+  name             String
+  level            Int // order / seniority; higher = more senior
+  defaultMinShifts Int? // per interval; pre-fills new assignments
+  defaultMaxShifts Int?
+  active           Boolean   @default(true)
+  archivedAt       DateTime?
+
+  program       Program           @relation(fields: [programId], references: [id])
+  participants  Participant[]
+  shiftSettings ShiftRole[]
+  academicDays  AcademicDayRole[]
+  rules         Rule[]
+
+  @@unique([programId, name])
+}
+
+model Participant {
+  id            String    @id @default(cuid())
+  programId     String
+  roleId        String
+  firstName     String
+  lastName      String
+  email         String
+  phone         String?
+  active        Boolean   @default(true)
+  calendarToken String    @unique @default(cuid()) // secret in the personal calendar-feed URL
+  archivedAt    DateTime?
+
+  program            Program                @relation(fields: [programId], references: [id])
+  role               Role                   @relation(fields: [roleId], references: [id])
+  membership         Membership?
+  assignments        Assignment[]
+  timeOff            TimeOff[]
+  shiftAdjustments   ShiftAdjustment[]
+  academicExceptions AcademicDayException[]
+  rules              Rule[]
+  scheduledShifts    ScheduledShift[]
+
+  @@unique([programId, email])
+  @@index([programId, lastName])
+}
+
+// Day / Evening / Swing / Night ... defined by the program, in clockwise rotation order.
+model ShiftCategory {
+  id           String  @id @default(cuid())
+  programId    String
+  name         String
+  sortOrder    Int // position in the forward (clockwise) rotation
+  isNight      Boolean @default(false)
+  balanceGroup String? // categories sharing a group are balanced together; null = own group
+  color        String?
+
+  program         Program                @relation(fields: [programId], references: [id])
+  shifts          Shift[]
+  specialShifts   SpecialStaffingShift[]
+  scheduledShifts ScheduledShift[]
+
+  @@unique([programId, name])
+}
+
+// Reusable shift template.
+model Shift {
+  id                  String    @id @default(cuid())
+  programId           String
+  institutionId       String
+  areaId              String?
+  categoryId          String
+  name                String
+  startMinute         Int // minutes after midnight, 0-1439
+  durationMinutes     Int // length; end = start + duration, may pass midnight
+  daysOfWeek          Int[] // 0 = Mon ... 6 = Sun
+  countsAsPreviousDay Boolean   @default(false) // a night that starts after midnight belongs to the evening before
+  minParticipants     Int       @default(1)
+  maxParticipants     Int       @default(1)
+  active              Boolean   @default(true)
+  archivedAt          DateTime?
+
+  program         Program                @relation(fields: [programId], references: [id])
+  institution     Institution            @relation(fields: [institutionId], references: [id])
+  area            Area?                  @relation(fields: [areaId], references: [id])
+  category        ShiftCategory          @relation(fields: [categoryId], references: [id])
+  roleSettings    ShiftRole[]
+  assignments     AssignmentShift[]
+  specialShifts   SpecialStaffingShift[]
+  scheduledShifts ScheduledShift[]
+
+  @@unique([institutionId, name])
+}
+
+// One row per shift x role: the eligibility checkbox and the headcount required from that role.
+model ShiftRole {
+  shiftId       String
+  roleId        String
+  eligible      Boolean @default(true)
+  requiredCount Int     @default(0)
+
+  shift Shift @relation(fields: [shiftId], references: [id], onDelete: Cascade)
+  role  Role  @relation(fields: [roleId], references: [id])
+
+  @@id([shiftId, roleId])
+}
+
+// ────────────────────────────────── Schedule ──────────────────────────────────
+
+enum IntervalStatus {
+  DRAFT
+  LOCKED
+  PUBLISHED
+}
+
+// Scheduling period: the date range scheduled at once (e.g. a 4-week block).
+model Interval {
+  id                    String         @id @default(cuid())
+  programId             String
+  name                  String
+  startDate             DateTime       @db.Date
+  endDate               DateTime       @db.Date
+  status                IntervalStatus @default(DRAFT)
+  requestsOpen          Boolean        @default(true) // admin switch: is this interval accepting requests off
+  requestDeadline       DateTime? // residents may submit requests off until then
+  requestAllowance      Int? // days of requests off per participant; null = program default
+  highPriorityAllowance Int?
+  lockedAt              DateTime?
+  publishedAt           DateTime?
+
+  program          Program           @relation(fields: [programId], references: [id])
+  timeOff          TimeOff[]
+  shiftAdjustments ShiftAdjustment[]
+  schedules        Schedule[]
+
+  @@unique([programId, name])
+  @@index([programId, startDate])
+}
+
+// Block-schedule assignment: a participant's "contract" for a date range.
+// A participant's assignments may not overlap (constraints.sql).
+model Assignment {
+  id            String   @id @default(cuid())
+  programId     String
+  participantId String
+  startDate     DateTime @db.Date
+  endDate       DateTime @db.Date
+  minShifts     Int // required shift count, as a range; set equal for an exact number
+  maxShifts     Int
+  notes         String?
+
+  program      Program                 @relation(fields: [programId], references: [id])
+  participant  Participant             @relation(fields: [participantId], references: [id])
+  institutions AssignmentInstitution[]
+  shifts       AssignmentShift[] // eligible shift types; none listed = whatever the role allows
+  timeOff      TimeOff[]
+
+  @@index([participantId, startDate])
+}
+
+model AssignmentInstitution {
+  assignmentId  String
+  institutionId String
+
+  assignment  Assignment  @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  institution Institution @relation(fields: [institutionId], references: [id])
+
+  @@id([assignmentId, institutionId])
+}
+
+model AssignmentShift {
+  assignmentId String
+  shiftId      String
+
+  assignment Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  shift      Shift      @relation(fields: [shiftId], references: [id])
+
+  @@id([assignmentId, shiftId])
+}
+
+enum SpecialMode {
+  REPLACE // only the shifts listed for the day run at that institution
+  MODIFY // the normal shifts run, with the listed changes
+}
+
+// Date-specific override of the shift templates (holiday, conference, event).
+model SpecialStaffingDay {
+  id            String      @id @default(cuid())
+  programId     String
+  institutionId String
+  date          DateTime    @db.Date
+  name          String
+  mode          SpecialMode
+
+  program     Program                @relation(fields: [programId], references: [id])
+  institution Institution            @relation(fields: [institutionId], references: [id])
+  shifts      SpecialStaffingShift[]
+
+  @@unique([institutionId, date])
+}
+
+enum SpecialAction {
+  ADD // an extra shift that day (optionally copied from a normal shift)
+  CHANGE // a normal shift runs with different times / length / headcount
+  REMOVE // a normal shift does not run
+}
+
+// One line of a special staffing day. Override columns left null inherit from the normal shift.
+model SpecialStaffingShift {
+  id                   String        @id @default(cuid())
+  specialStaffingDayId String
+  action               SpecialAction
+  shiftId              String? // the normal shift changed / removed / copied
+  name                 String?
+  categoryId           String?
+  areaId               String?
+  startMinute          Int?
+  durationMinutes      Int?
+  countsAsPreviousDay  Boolean?
+  minParticipants      Int?
+  maxParticipants      Int?
+
+  day             SpecialStaffingDay @relation(fields: [specialStaffingDayId], references: [id], onDelete: Cascade)
+  shift           Shift?             @relation(fields: [shiftId], references: [id])
+  category        ShiftCategory?     @relation(fields: [categoryId], references: [id])
+  area            Area?              @relation(fields: [areaId], references: [id])
+  scheduledShifts ScheduledShift[]
+}
+
+// ─────────────────────────── Time off and preferences ───────────────────────────
+
+enum OverlapPolicy {
+  BLOCKED // attendees cannot be given a shift that overlaps the session
+  EXCUSED // overlapping shifts are staffed; whoever works one is excused
+}
+
+// Recurring protected academic time. Not a shift, but shown on everyone's schedule.
+model AcademicDay {
+  id                   String        @id @default(cuid())
+  programId            String
+  name                 String
+  dayOfWeek            Int
+  startMinute          Int
+  durationMinutes      Int
+  startDate            DateTime?     @db.Date // null = open-ended
+  endDate              DateTime?     @db.Date
+  overlapPolicy        OverlapPolicy @default(BLOCKED)
+  protectBeforeMinutes Int           @default(0)
+  protectAfterMinutes  Int           @default(0)
+  active               Boolean       @default(true)
+  archivedAt           DateTime?
+
+  program     Program                 @relation(fields: [programId], references: [id])
+  roles       AcademicDayRole[] // who attends; none listed = every role
+  occurrences AcademicDayOccurrence[]
+  exceptions  AcademicDayException[]
+}
+
+model AcademicDayRole {
+  academicDayId String
+  roleId        String
+
+  academicDay AcademicDay @relation(fields: [academicDayId], references: [id], onDelete: Cascade)
+  role        Role        @relation(fields: [roleId], references: [id])
+
+  @@id([academicDayId, roleId])
+}
+
+// One week's session differs from the usual (other time, other length, other policy) or is cancelled.
+model AcademicDayOccurrence {
+  id              String         @id @default(cuid())
+  academicDayId   String
+  date            DateTime       @db.Date
+  cancelled       Boolean        @default(false)
+  startMinute     Int?
+  durationMinutes Int?
+  overlapPolicy   OverlapPolicy?
+
+  academicDay AcademicDay @relation(fields: [academicDayId], references: [id], onDelete: Cascade)
+
+  @@unique([academicDayId, date])
+}
+
+enum AttendanceException {
+  EXCUSED // does not attend although their role does
+  REQUIRED // attends although their role does not
+}
+
+model AcademicDayException {
+  id            String              @id @default(cuid())
+  academicDayId String
+  participantId String
+  type          AttendanceException
+  startDate     DateTime?           @db.Date // null = always
+  endDate       DateTime?           @db.Date
+  reason        String?
+
+  academicDay AcademicDay @relation(fields: [academicDayId], references: [id], onDelete: Cascade)
+  participant Participant @relation(fields: [participantId], references: [id])
+}
+
+enum TimeOffKind {
+  VACATION // approved; never scheduled
+  REQUEST_OFF // a preference with a priority; "mandatory" makes it hard
+  FIRST_DAY_OFF // preset request: keep the first day of the interval / assignment free
+  LAST_DAY_OFF // preset request: keep the last day free
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum RequestStatus {
+  PENDING
+  APPROVED
+  DENIED
+}
+
+// Vacation, requests off and first/last-day-off presets: one table, one conversion to rules.
+model TimeOff {
+  id                String        @id @default(cuid())
+  programId         String
+  participantId     String
+  intervalId        String? // requests and presets belong to an interval; vacation may span several
+  assignmentId      String? // first/last-day presets can anchor to an assignment instead
+  kind              TimeOffKind
+  startDate         DateTime      @db.Date
+  endDate           DateTime      @db.Date
+  priority          Priority?
+  mandatory         Boolean       @default(false)
+  reason            String?
+  status            RequestStatus @default(APPROVED)
+  allowanceOverride Boolean       @default(false) // an admin accepted it over the allowance
+  createdById       String?
+  createdAt         DateTime      @default(now())
+
+  program     Program     @relation(fields: [programId], references: [id])
+  participant Participant @relation(fields: [participantId], references: [id])
+  interval    Interval?   @relation(fields: [intervalId], references: [id])
+  assignment  Assignment? @relation(fields: [assignmentId], references: [id])
+  createdBy   User?       @relation(fields: [createdById], references: [id])
+
+  @@index([participantId, startDate])
+  @@index([intervalId, kind])
+}
+
+// Shift reduction / penalty: moves a participant's required count for an interval up or down.
+model ShiftAdjustment {
+  id            String   @id @default(cuid())
+  programId     String
+  participantId String
+  intervalId    String
+  delta         Int // e.g. -2 chief duties, +1 make-up shift
+  reason        String
+  createdById   String?
+  createdAt     DateTime @default(now())
+
+  program     Program     @relation(fields: [programId], references: [id])
+  participant Participant @relation(fields: [participantId], references: [id])
+  interval    Interval    @relation(fields: [intervalId], references: [id])
+  createdBy   User?       @relation(fields: [createdById], references: [id])
+
+  @@index([intervalId, participantId])
+}
+
+// ──────────────────────────────────── Rules ────────────────────────────────────
+
+enum RuleScope {
+  PROGRAM
+  INSTITUTION
+  ROLE
+  PARTICIPANT
+}
+
+enum RuleLevel {
+  HARD
+  SOFT
+}
+
+enum RuleSource {
+  SYSTEM // seeded with the program (ACGME limits, default goals); editable, not deletable
+  MANUAL
+  AI_ASSISTED // proposed from free text, confirmed by an admin
+}
+
+// The ONE rule entity. `template` is a key in rule-templates.json, which defines the
+// typed parameters for that template; "custom" means free text that could not be mapped.
+model Rule {
+  id            String     @id @default(cuid())
+  programId     String
+  scope         RuleScope
+  institutionId String?
+  roleId        String?
+  participantId String?
+  template      String
+  params        Json
+  level         RuleLevel
+  weight        Int? // soft rules: 1-10
+  priority      Int? // soft rules: position in the strict order the solver works through (1 = first)
+  activeFrom    DateTime?  @db.Date
+  activeTo      DateTime?  @db.Date
+  notes         String?
+  originalText  String? // the admin's plain-English wording, kept verbatim
+  source        RuleSource @default(MANUAL)
+  needsReview   Boolean    @default(false)
+  enabled       Boolean    @default(true)
+  createdById   String?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  archivedAt    DateTime?
+
+  program     Program      @relation(fields: [programId], references: [id])
+  institution Institution? @relation(fields: [institutionId], references: [id])
+  role        Role?        @relation(fields: [roleId], references: [id])
+  participant Participant? @relation(fields: [participantId], references: [id])
+  createdBy   User?        @relation(fields: [createdById], references: [id])
+
+  @@index([programId, template])
+}
+
+// ─────────────────────────────── Schedule output ───────────────────────────────
+
+enum ScheduleSource {
+  SOLVER
+  IMPORT
+  MANUAL
+}
+
+enum ScheduleStatus {
+  DRAFT
+  PUBLISHED
+  SUPERSEDED
+}
+
+// An engine run: QUEUED -> RUNNING -> DONE, FAILED or CANCELLED. Imported and hand-made schedules are DONE.
+enum RunStatus {
+  QUEUED
+  RUNNING
+  DONE
+  FAILED
+  CANCELLED
+}
+
+// One generated or imported schedule for an interval. Several drafts, at most one published.
+// At most one engine run per interval is in progress at a time, and only a finished schedule
+// can be published (constraints.sql).
+model Schedule {
+  id            String         @id @default(cuid())
+  intervalId    String
+  source        ScheduleSource
+  status        ScheduleStatus @default(DRAFT)
+  label         String?
+  inputSnapshot Json? // the compiled inputs it was built from
+  report        Json? // validator result, open shifts, goal scores
+  createdById   String?
+  createdAt     DateTime       @default(now())
+  publishedAt   DateTime?
+  runStatus     RunStatus      @default(DONE)
+  timeBudget    Int? // seconds the engine was given
+  startedAt     DateTime?
+  finishedAt    DateTime?
+  inputHash     String? // fingerprint of inputSnapshot: tells when the inputs have changed since
+  error         String? // why a run failed, in plain words
+  workDir       String? // where the engine's files for this run are kept
+  workerPid     Int?
+  workerHost    String? // which server instance is running it; a run does not survive that instance being replaced
+
+  interval  Interval         @relation(fields: [intervalId], references: [id])
+  createdBy User?            @relation(fields: [createdById], references: [id])
+  shifts    ScheduledShift[]
+
+  @@index([intervalId, status])
+}
+
+// One person on one shift on one date (or an open shift when participantId is null).
+// Feeds the calendar export and the next interval's boundary checks.
+model ScheduledShift {
+  id                     String   @id @default(cuid())
+  scheduleId             String
+  participantId          String?
+  institutionId          String
+  categoryId             String
+  shiftId                String?
+  specialStaffingShiftId String?
+  name                   String
+  dutyDate               DateTime @db.Date // the day the shift belongs to
+  startsAt               DateTime // local wall-clock time at the institution
+  endsAt                 DateTime
+
+  schedule     Schedule              @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  participant  Participant?          @relation(fields: [participantId], references: [id])
+  institution  Institution           @relation(fields: [institutionId], references: [id])
+  category     ShiftCategory         @relation(fields: [categoryId], references: [id])
+  shift        Shift?                @relation(fields: [shiftId], references: [id])
+  specialShift SpecialStaffingShift? @relation(fields: [specialStaffingShiftId], references: [id])
+
+  @@index([scheduleId, dutyDate])
+  @@index([participantId, startsAt])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  programId String
+  userId    String?
+  entity    String
+  entityId  String
+  action    String
+  changes   Json?
+  createdAt DateTime @default(now())
+
+  program Program @relation(fields: [programId], references: [id])
+  user    User?   @relation(fields: [userId], references: [id])
+
+  @@index([programId, entity, entityId])
+}

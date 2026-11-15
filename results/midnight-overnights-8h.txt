@@ -1,0 +1,30 @@
+=== midnight-overnights-8h: 8h block, 32+ shifts/day (seed 12) ===
+49 residents, 936 shifts (32-34 per day), shift lengths [8.0] h, staffing margin +5.1%
+Academic time: Mon 01/04 13:00-16:00; Mon 01/11 08:30-12:00; Mon 01/18 15:00-17:00; Mon 01/25 14:30-16:30  [shift overlaps: blocked]
+Nights that start after midnight (count as the previous day): LBJ GP overnight 8h starts 00:00; MHH T overnight 8h starts 00:00
+Pre-check: inputs look feasible.
+Model: 49 residents, 20,669 assignment decisions, 1,097,827 non-zeros. Engine: HiGHS, strategy: lns
+Greedy warm start: 2 of 936 shifts open (0s)
+Swap polish: 660 improving moves, 0 shifts open (45s)
+  pass 1  night runs too close               3.0 ->     1.0    63s
+  pass 1  pod balance                        1.0 ->     0.0     5s
+  pass 1  isolated days off                 86.0 ->    67.0    61s
+  pass 1  extra / over-long night runs      16.0 ->    16.0    58s
+  pass 1  requests off missed               14.0 ->    12.0    30s
+  pass 2  night runs too close               1.0 ->     1.0     8s
+  pass 2  isolated days off                 67.0 ->    66.0     6s
+  pass 2  extra / over-long night runs      16.0 ->    16.0    10s
+Validator: 0 hard-rule violations, 0 open shifts, 0 residents under contract minimum
+Peak hours in any rolling 7 days: 56 (limit 60); tightest rest margin: 4h beyond the required rest
+  contract shortfall                 0.0   [optimal]
+  backward rotations                 0.0   [optimal]
+  day/evening/night balance          0.0   [optimal]
+  night runs too close               1.0   [best found]
+  nights into vacation               0.0   [optimal]
+  night share over limit             0.0   [optimal]
+  pod balance                        0.0   [optimal]
+  isolated days off                 66.0   [best found]
+  extra / over-long night runs      16.0   [best found]
+  requests off missed                7.0   [best found]
+Total time 290s; exact sub-solves: 116; moves rejected by the validator: 0
+Resident-days with two nights starting on the same calendar date: 35

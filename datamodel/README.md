@@ -1,0 +1,51 @@
+# Cadence data model
+
+The database design for the admin and resident web app, plus the bridge that turns an interval's
+inputs into the scheduling engine's input and stores the result.
+
+## Stack choices
+
+Your spec gave the stack as an example and asked for the simplest conventional option, so:
+
+* **Next.js (App Router) + TypeScript** for the app, **Tailwind + shadcn/ui** for the screens.
+* **PostgreSQL + Prisma** for data. `schema.prisma` is the source of truth.
+* **Auth.js** for sign-in (it adds its own session tables next to `User`).
+* **Zod** for form validation; rule parameters are validated against `rule-templates.json`.
+* The scheduling engine stays a separate **Python** service. `compile_interval.py` is its input adapter.
+
+## Files
+
+| File | What it is |
+|---|---|
+| `schema.prisma` | 28 tables, 16 enums. Identical to `web/prisma/schema.prisma` |
+| `constraints.sql` | Rules Prisma cannot express (no overlapping assignments or intervals, end after start, one published schedule per interval, rule scope must match its target, ...) |
+| `rule-templates.json` | The rule template library: 24 templates with typed parameters, and the 12 system rules a new program starts with |
+| `compile_interval.py` | Database -> engine input, the uniform "compiled rules" list, saving a schedule back, and the calendar (.ics) feed |
+| `seed_demo.py` / `seed_demo.sql` | A made-up program that uses every table |
+| `test_datamodel.py` | End-to-end test against a real PostgreSQL server |
+| `tools/prisma_check.py` | Structural schema check and SQL generator, standing in for Prisma where it is not installed |
+| `demo_output/` | Block 7 from the demo: engine input, compiled rules, one resident's calendar file |
+
+## Run the test
+
+    # needs a PostgreSQL server you can create databases on
+    PGHOST=... PGPORT=... PGUSER=... python datamodel/test_datamodel.py
+
+## What has and has not been checked
+
+Checked, on PostgreSQL 16:
+
+* the schema is structurally sound (every relation has both sides, keys and types line up) and loads: 28 tables, 60 foreign keys;
+* the database refuses 13 kinds of bad data (overlapping assignments, deleting a role people still have, a second
+  published schedule, ...);
+* the demo program compiles into engine input, the engine schedules it (265 shifts, 18 participants) with zero
+  hard-rule violations, and 14 spot-checks confirm that specific database inputs reached the schedule;
+* the schedule saves back, a calendar file exports, and the next block picks up its boundary history from it.
+
+Also checked: Prisma 7.10.1 validates `schema.prisma` and generates its client, and the web app's own compile
+step (`web/src/lib/compile.ts`) produces exactly the same engine input as `compile_interval.py` from the same database.
+
+Not checked:
+
+* **The migration SQL has not been through Prisma's migration engine** (its binary could not be downloaded here).
+  The tables are created by `tools/prisma_check.py`, which follows Prisma's conventions but is not Prisma.

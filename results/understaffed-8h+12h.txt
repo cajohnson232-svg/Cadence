@@ -1,0 +1,36 @@
+=== understaffed-8h+12h: 8h+12h block, 32+ shifts/day (seed 9) ===
+59 residents, 936 shifts (32-34 per day), shift lengths [8.0, 12.0] h, staffing margin -3.4%
+Academic time: Tue 01/05 08:30-10:30; Tue 01/12 12:00-14:30; Tue 01/19 08:30-12:30; Tue 01/26 13:30-17:00  [shift overlaps: blocked]
+PRE-CHECK IMPOSSIBLE: Total coverage: 936 shifts needed but only 904 available.
+Model: 59 residents, 21,111 assignment decisions, 1,447,361 non-zeros. Engine: HiGHS, strategy: lns
+Greedy warm start: 45 of 936 shifts open (0s)
+Swap polish: 693 improving moves, 32 shifts open (60s)
+  pass 1  open shifts                       32.0 ->    32.0     5s
+  pass 1  night runs too close               3.0 ->     0.0    40s
+  pass 1  pod balance                        4.0 ->     0.0     5s
+  pass 1  isolated days off                 76.0 ->    47.0    64s
+  pass 1  extra / over-long night runs      22.0 ->    21.0    67s
+  pass 1  requests off missed               19.0 ->     8.0    47s
+  pass 2  open shifts                       32.0 ->    32.0     8s
+  pass 2  isolated days off                 47.0 ->    47.0     4s
+  pass 2  extra / over-long night runs      21.0 ->    21.0     8s
+Validator: 0 hard-rule violations, 32 open shifts, 0 residents under contract minimum
+  OPEN: MHH T swing 8h Mon 01/04 19:00 (8h): 1 of 2 open. 20 needs PGY-2+; 17 already working that day; 8 at contract maximum; 7 not enough rest before/after; 3 would exceed the weekly hours cap (Okafor, Zimmer, Irwin); 2 vacation (Udoka, Evans); 1 would lose their 24h break that week (Jones)
+  OPEN: LBJ CC evening 12h Tue 01/05 10:30 (12h): 1 of 2 open. 31 already working that day; 15 not enough rest before/after; 6 would exceed the weekly hours cap; 4 at contract maximum; 2 vacation (Udoka, Evans)
+  OPEN: MHH T swing 8h Tue 01/05 19:00 (8h): 1 of 2 open. 20 needs PGY-2+; 17 already working that day; 11 not enough rest before/after; 6 at contract maximum; 2 vacation (Udoka, Evans); 2 would exceed the weekly hours cap (Price, Irwin)
+  OPEN: MHH T night 8h Wed 01/06 21:00 (8h): 1 of 2 open. 21 already working that day; 20 needs PGY-2+; 7 at contract maximum; 2 chief time (Garcia, Eaton); 2 not enough rest before/after (Kim, Hart); 2 would create too many runs of nights (Walker, Price); 2 vacation (Udoka, Evans); 1 would exceed the weekly hours cap (Singh); 1 would lose their 24h break that week (Vance)
+  OPEN: LBJ CC evening 12h Thu 01/07 10:30 (12h): 1 of 2 open. 30 already working that day; 9 not enough rest before/after; 7 at contract maximum; 6 would exceed the weekly hours cap; 3 vacation (Udoka, Unger, Evans); 2 chief time (Garcia, Eaton); 1 mandatory request off (Zimmer)
+  OPEN: LBJ GP evening 8h Thu 01/07 15:00 (8h): 1 of 2 open. 30 already working that day; 14 at contract maximum; 5 not enough rest before/after; 5 would exceed the weekly hours cap; 3 vacation (Udoka, Unger, Evans); 1 mandatory request off (Zimmer)
+  OPEN: ...
+Peak hours in any rolling 7 days: 60 (limit 60); tightest rest margin: 0h beyond the required rest
+  contract shortfall                 0.0   [optimal]
+  backward rotations                 0.0   [optimal]
+  day/evening/night balance          0.0   [optimal]
+  night runs too close               0.0   [optimal]
+  nights into vacation               0.0   [optimal]
+  night share over limit             0.0   [optimal]
+  pod balance                        0.0   [optimal]
+  isolated days off                 47.0   [best found]
+  extra / over-long night runs      21.0   [best found]
+  requests off missed                8.0   [best found]
+Total time 309s; exact sub-solves: 165; moves rejected by the validator: 0

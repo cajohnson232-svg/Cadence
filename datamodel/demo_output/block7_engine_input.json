@@ -1,0 +1,916 @@
+{
+ "name": "Block 7 (2027-01-04 to 2027-01-31)",
+ "start_date": "2027-01-04",
+ "n_days": 28,
+ "category_order": [
+  "Day",
+  "Evening",
+  "Swing",
+  "Night"
+ ],
+ "night_categories": [
+  "Night"
+ ],
+ "balance_groups": {
+  "Day": "Day",
+  "Evening": "Evening",
+  "Swing": "Evening",
+  "Night": "Night"
+ },
+ "pod_pairs": [
+  [
+   "LBJ",
+   "GP",
+   "CC"
+  ],
+  [
+   "MHH",
+   "T",
+   "M"
+  ]
+ ],
+ "rules": {
+  "max_week_hours": 60,
+  "rest_ratio": 1,
+  "max_nights": 8,
+  "max_night_runs": 2,
+  "min_gap_between_night_runs": 7,
+  "max_night_fraction_pct": 45,
+  "soft_max_nights_in_run": 6,
+  "balance_tolerance_shifts": 1,
+  "min_rest_hours": 10,
+  "pod_tolerance_shifts": 1
+ },
+ "shift_templates": [
+  {
+   "name": "Day T",
+   "ref": "s_dt",
+   "site": "MHH",
+   "pod": "T",
+   "category": "Day",
+   "start": "07:00",
+   "hours": 8.0,
+   "headcount": 1,
+   "max_headcount": 1,
+   "min_pgy": 2,
+   "counts_as_previous_day": false,
+   "weekdays": [
+    0,
+    1,
+    3,
+    4,
+    5,
+    6
+   ],
+   "except_days": [
+    14
+   ]
+  },
+  {
+   "name": "Day T (after conference)",
+   "ref": "s_dtw",
+   "site": "MHH",
+   "pod": "T",
+   "category": "Day",
+   "start": "12:00",
+   "hours": 8.0,
+   "headcount": 1,
+   "max_headcount": 1,
+   "min_pgy": 2,
+   "counts_as_previous_day": false,
+   "weekdays": [
+    2
+   ],
+   "except_days": []
+  },
+  {
+   "name": "Day M",
+   "ref": "s_dm",
+   "site": "MHH",
+   "pod": "M",
+   "category": "Day",
+   "start": "07:00",
+   "hours": 8.0,
+   "headcount": 1,
+   "max_headcount": 1,
+   "min_pgy": 1,
+   "counts_as_previous_day": false,
+   "weekdays": [
+    0,
+    1,
+    3,
+    4,
+    5,
+    6
+   ],
+   "except_days": [
+    14
+   ]
+  },
+  {
+   "name": "Day M (after conference)",
+   "ref": "s_dmw",
+   "site": "MHH",
+   "pod": "M",
+   "category": "Day",
+   "start": "12:00",
+   "hours": 8.0,
+   "headcount": 1,
+   "max_headcount": 1,
+   "min_pgy": 1,
+   "counts_as_previous_day": false,
+   "weekdays": [
+    2
+   ],
+   "except_days": []
+  },
+  {
+   "name": "Fast track",
+   "ref": "s_ft",
+   "site": "MHH",
+   "pod": "M",
+   "category": "Day",
+   "start": "10:00",
+   "hours": 8.0,
+   "headcount": 1,
+   "max_headcount": 1,
+   "min_pgy": 1,
+   "counts_as_previous_day": false,
+   "weekdays": [
+    0,
+    1,
+    3,
+    4
+   ],
+   "except_days": [
+    14
+   ]
+  },
+  {
+   "name": "Evening T",
+   "ref": "s_et",
+   "site": "MHH",
+   "pod": "T",
+   "category": "Evening",
+   "start": "15:00",
+   "hours": 8.0,
+   "headcount": 1,
+   "max_headcount": 1,
+   "min_pgy": 2,
+   "counts_as_previous_day": false,
+   "weekdays": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+   ],
+   "except_days": [
+    14
+   ]
+  },
+  {
+   "name": "Evening M",
+   "ref": "s_em",
+   "site": "MHH",
+   "pod": "M",
+   "category": "Evening",
+   "start": "15:00",
+   "hours": 8.0,
+   "headcount": 1,
+   "max_headcount": 1,
+   "min_pgy": 1,
+   "counts_as_previous_day": false,
+   "weekdays": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+   ],
+   "except_days": [
+    14
+   ]
+  },
+  {
+   "name": "Night T",
+   "ref": "s_nt",
+   "site": "MHH",
+   "pod": "T",
+   "category": "Night",
+   "start": "23:00",
+   "hours": 8.0,
+   "headcount": 1,
+   "max_headcount": 1,
+   "min_pgy": 2,
+   "counts_as_previous_day": false,
+   "weekdays": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+   ],
+   "except_days": [
+    14
+   ]
+  },
+  {
+   "name": "Night M",
+   "ref": "s_nm",
+   "site": "MHH",
+   "pod": "M",
+   "category": "Night",
+   "start": "23:00",
+   "hours": 8.0,
+   "headcount": 1,
+   "max_headcount": 1,
+   "min_pgy": 1,
+   "counts_as_previous_day": false,
+   "weekdays": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+   ],
+   "except_days": [
+    14
+   ]
+  },
+  {
+   "name": "Day GP",
+   "ref": "s_dg",
+   "site": "LBJ",
+   "pod": "GP",
+   "category": "Day",
+   "start": "07:00",
+   "hours": 10.0,
+   "headcount": 1,
+   "max_headcount": 1,
+   "min_pgy": 1,
+   "counts_as_previous_day": false,
+   "weekdays": [
+    0,
+    1,
+    3,
+    4,
+    5,
+    6
+   ],
+   "except_days": [
+    25
+   ]
+  },
+  {
+   "name": "Day GP (after conference)",
+   "ref": "s_dgw",
+   "site": "LBJ",
+   "pod": "GP",
+   "category": "Day",
+   "start": "12:00",
+   "hours": 10.0,
+   "headcount": 1,
+   "max_headcount": 1,
+   "min_pgy": 1,
+   "counts_as_previous_day": false,
+   "weekdays": [
+    2
+   ],
+   "except_days": []
+  },
+  {
+   "name": "Swing CC",
+   "ref": "s_sc",
+   "site": "LBJ",
+   "pod": "CC",
+   "category": "Swing",
+   "start": "14:00",
+   "hours": 10.0,
+   "headcount": 1,
+   "max_headcount": 1,
+   "min_pgy": 1,
+   "counts_as_previous_day": false,
+   "weekdays": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+   ],
+   "except_days": [
+    25
+   ]
+  },
+  {
+   "name": "Night GP",
+   "ref": "s_ng",
+   "site": "LBJ",
+   "pod": "GP",
+   "category": "Night",
+   "start": "21:00",
+   "hours": 10.0,
+   "headcount": 1,
+   "max_headcount": 1,
+   "min_pgy": 1,
+   "counts_as_previous_day": false,
+   "weekdays": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+   ],
+   "except_days": []
+  },
+  {
+   "name": "Holiday Day T",
+   "ref": "s_dt",
+   "site": "MHH",
+   "pod": "T",
+   "category": "Day",
+   "start": "07:00",
+   "hours": 12.0,
+   "headcount": 1,
+   "max_headcount": 1,
+   "min_pgy": 2,
+   "counts_as_previous_day": false,
+   "only_days": [
+    14
+   ],
+   "special_ref": "sps_mlk0"
+  },
+  {
+   "name": "Holiday Day M",
+   "ref": "s_dm",
+   "site": "MHH",
+   "pod": "M",
+   "category": "Day",
+   "start": "07:00",
+   "hours": 12.0,
+   "headcount": 1,
+   "max_headcount": 1,
+   "min_pgy": 1,
+   "counts_as_previous_day": false,
+   "only_days": [
+    14
+   ],
+   "special_ref": "sps_mlk1"
+  },
+  {
+   "name": "Holiday Night T",
+   "ref": "s_nt",
+   "site": "MHH",
+   "pod": "T",
+   "category": "Night",
+   "start": "19:00",
+   "hours": 12.0,
+   "headcount": 1,
+   "max_headcount": 1,
+   "min_pgy": 2,
+   "counts_as_previous_day": false,
+   "only_days": [
+    14
+   ],
+   "special_ref": "sps_mlk2"
+  },
+  {
+   "name": "Holiday Night M",
+   "ref": "s_nm",
+   "site": "MHH",
+   "pod": "M",
+   "category": "Night",
+   "start": "19:00",
+   "hours": 12.0,
+   "headcount": 1,
+   "max_headcount": 1,
+   "min_pgy": 1,
+   "counts_as_previous_day": false,
+   "only_days": [
+    14
+   ],
+   "special_ref": "sps_mlk3"
+  },
+  {
+   "name": "Day GP (Department retreat)",
+   "ref": "s_dg",
+   "site": "LBJ",
+   "pod": "GP",
+   "category": "Day",
+   "start": "07:00",
+   "hours": 10.0,
+   "headcount": 2,
+   "max_headcount": 2,
+   "min_pgy": 1,
+   "counts_as_previous_day": false,
+   "only_days": [
+    25
+   ],
+   "special_ref": "sps_ev1"
+  }
+ ],
+ "academic_time": [
+  {
+   "name": "Intern skills lab",
+   "day": 4,
+   "start": "13:00",
+   "hours": 2.0,
+   "if_shift_overlaps": "excused",
+   "protect_before_hours": 0.0,
+   "protect_after_hours": 0.0,
+   "excused": [],
+   "also_attend": [],
+   "pgy": [
+    1
+   ]
+  },
+  {
+   "name": "Intern skills lab",
+   "day": 11,
+   "start": "13:00",
+   "hours": 2.0,
+   "if_shift_overlaps": "excused",
+   "protect_before_hours": 0.0,
+   "protect_after_hours": 0.0,
+   "excused": [],
+   "also_attend": [],
+   "pgy": [
+    1
+   ]
+  },
+  {
+   "name": "Wednesday conference",
+   "day": -5,
+   "start": "07:00",
+   "hours": 5.0,
+   "if_shift_overlaps": "blocked",
+   "protect_before_hours": 0.0,
+   "protect_after_hours": 0.0,
+   "excused": [],
+   "also_attend": []
+  },
+  {
+   "name": "Wednesday conference",
+   "day": 2,
+   "start": "07:00",
+   "hours": 5.0,
+   "if_shift_overlaps": "blocked",
+   "protect_before_hours": 0.0,
+   "protect_after_hours": 0.0,
+   "excused": [
+    "p05"
+   ],
+   "also_attend": []
+  },
+  {
+   "name": "Wednesday conference",
+   "day": 9,
+   "start": "08:00",
+   "hours": 3.0,
+   "if_shift_overlaps": "blocked",
+   "protect_before_hours": 0.0,
+   "protect_after_hours": 0.0,
+   "excused": [],
+   "also_attend": []
+  },
+  {
+   "name": "Wednesday conference",
+   "day": 23,
+   "start": "07:00",
+   "hours": 4.0,
+   "if_shift_overlaps": "blocked",
+   "protect_before_hours": 0.0,
+   "protect_after_hours": 0.0,
+   "excused": [],
+   "also_attend": []
+  }
+ ],
+ "residents": [
+  {
+   "id": "p01",
+   "name": "Avery Adams",
+   "pgy": 1,
+   "shifts_min": 16,
+   "shifts_max": 17,
+   "sites": [
+    "LBJ",
+    "MHH"
+   ],
+   "vacation": [],
+   "mandatory_off": [],
+   "requests_off": {
+    "5": 3,
+    "6": 3,
+    "18": 1
+   },
+   "unavailable": []
+  },
+  {
+   "id": "p02",
+   "name": "Blake Brooks",
+   "pgy": 1,
+   "shifts_min": 12,
+   "shifts_max": 14,
+   "sites": [
+    "LBJ",
+    "MHH"
+   ],
+   "vacation": [
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13
+   ],
+   "mandatory_off": [],
+   "requests_off": {},
+   "unavailable": []
+  },
+  {
+   "id": "p03",
+   "name": "Casey Chen",
+   "pgy": 1,
+   "shifts_min": 16,
+   "shifts_max": 17,
+   "sites": [
+    "LBJ",
+    "MHH"
+   ],
+   "vacation": [],
+   "mandatory_off": [],
+   "requests_off": {},
+   "unavailable": []
+  },
+  {
+   "id": "p04",
+   "name": "Devon Diaz",
+   "pgy": 1,
+   "shifts_min": 16,
+   "shifts_max": 17,
+   "sites": [
+    "MHH"
+   ],
+   "vacation": [],
+   "mandatory_off": [],
+   "requests_off": {},
+   "unavailable": []
+  },
+  {
+   "id": "p05",
+   "name": "Emery Evans",
+   "pgy": 1,
+   "shifts_min": 16,
+   "shifts_max": 17,
+   "sites": [
+    "LBJ"
+   ],
+   "vacation": [],
+   "mandatory_off": [],
+   "requests_off": {
+    "0": 3
+   },
+   "unavailable": []
+  },
+  {
+   "id": "p06",
+   "name": "Finley Flores",
+   "pgy": 1,
+   "shifts_min": 16,
+   "shifts_max": 17,
+   "sites": [
+    "LBJ",
+    "MHH"
+   ],
+   "vacation": [],
+   "mandatory_off": [],
+   "requests_off": {},
+   "unavailable": []
+  },
+  {
+   "id": "p07",
+   "name": "Gray Garcia",
+   "pgy": 2,
+   "shifts_min": 15,
+   "shifts_max": 17,
+   "sites": [
+    "LBJ",
+    "MHH"
+   ],
+   "vacation": [],
+   "mandatory_off": [],
+   "requests_off": {
+    "12": 2
+   },
+   "unavailable": []
+  },
+  {
+   "id": "p09",
+   "name": "Indra Iyer",
+   "pgy": 2,
+   "shifts_min": 15,
+   "shifts_max": 17,
+   "sites": [
+    "MHH"
+   ],
+   "vacation": [],
+   "mandatory_off": [],
+   "requests_off": {},
+   "unavailable": []
+  },
+  {
+   "id": "p10",
+   "name": "Jordan Jones",
+   "pgy": 2,
+   "shifts_min": 13,
+   "shifts_max": 15,
+   "sites": [
+    "LBJ"
+   ],
+   "vacation": [
+    19,
+    20,
+    21,
+    22
+   ],
+   "mandatory_off": [],
+   "requests_off": {},
+   "unavailable": []
+  },
+  {
+   "id": "p08",
+   "name": "Harper Kim",
+   "pgy": 2,
+   "shifts_min": 16,
+   "shifts_max": 18,
+   "sites": [
+    "LBJ",
+    "MHH"
+   ],
+   "vacation": [],
+   "mandatory_off": [],
+   "requests_off": {},
+   "unavailable": [
+    {
+     "label": "No LBJ overnights",
+     "from_day": 6,
+     "to_day": 20,
+     "categories": [
+      "Night"
+     ],
+     "sites": [
+      "LBJ"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "p11",
+   "name": "Kai Lee",
+   "pgy": 2,
+   "shifts_min": 15,
+   "shifts_max": 17,
+   "sites": [
+    "LBJ",
+    "MHH"
+   ],
+   "vacation": [],
+   "mandatory_off": [],
+   "requests_off": {
+    "27": 2
+   },
+   "unavailable": []
+  },
+  {
+   "id": "p12",
+   "name": "Logan Lopez",
+   "pgy": 2,
+   "shifts_min": 15,
+   "shifts_max": 17,
+   "sites": [
+    "LBJ",
+    "MHH"
+   ],
+   "vacation": [],
+   "mandatory_off": [],
+   "requests_off": {},
+   "unavailable": []
+  },
+  {
+   "id": "p13",
+   "name": "Morgan Nguyen",
+   "pgy": 3,
+   "shifts_min": 12,
+   "shifts_max": 14,
+   "sites": [
+    "LBJ",
+    "MHH"
+   ],
+   "vacation": [],
+   "mandatory_off": [],
+   "requests_off": {},
+   "unavailable": [
+    {
+     "label": "Chief days",
+     "weekdays": [
+      3
+     ],
+     "start": "00:00",
+     "hours": 13
+    }
+   ]
+  },
+  {
+   "id": "p14",
+   "name": "Noor Okafor",
+   "pgy": 3,
+   "shifts_min": 14,
+   "shifts_max": 16,
+   "sites": [
+    "LBJ",
+    "MHH"
+   ],
+   "vacation": [],
+   "mandatory_off": [
+    26
+   ],
+   "requests_off": {},
+   "unavailable": []
+  },
+  {
+   "id": "p15",
+   "name": "Oakley Patel",
+   "pgy": 3,
+   "shifts_min": 14,
+   "shifts_max": 16,
+   "sites": [
+    "LBJ",
+    "MHH"
+   ],
+   "vacation": [],
+   "mandatory_off": [],
+   "requests_off": {},
+   "unavailable": []
+  },
+  {
+   "id": "p16",
+   "name": "Parker Quinn",
+   "pgy": 3,
+   "shifts_min": 14,
+   "shifts_max": 16,
+   "sites": [
+    "LBJ",
+    "MHH"
+   ],
+   "vacation": [],
+   "mandatory_off": [],
+   "requests_off": {},
+   "unavailable": []
+  },
+  {
+   "id": "p17",
+   "name": "Quincy Reyes",
+   "pgy": 3,
+   "shifts_min": 14,
+   "shifts_max": 16,
+   "sites": [
+    "MHH"
+   ],
+   "vacation": [],
+   "mandatory_off": [],
+   "requests_off": {},
+   "unavailable": []
+  },
+  {
+   "id": "p18",
+   "name": "Riley Stone",
+   "pgy": 1,
+   "shifts_min": 7,
+   "shifts_max": 8,
+   "sites": [
+    "MHH"
+   ],
+   "vacation": [],
+   "mandatory_off": [
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27
+   ],
+   "requests_off": {},
+   "unavailable": [],
+   "only_shifts": [
+    "s_dm",
+    "s_dmw",
+    "s_em",
+    "s_ft"
+   ]
+  }
+ ],
+ "history": [
+  {
+   "resident": "p01",
+   "day": -4,
+   "start": "07:00",
+   "hours": 8.0,
+   "category": "Day",
+   "name": "Day M",
+   "counts_as_previous_day": false
+  },
+  {
+   "resident": "p01",
+   "day": -3,
+   "start": "07:00",
+   "hours": 8.0,
+   "category": "Day",
+   "name": "Day M",
+   "counts_as_previous_day": false
+  },
+  {
+   "resident": "p07",
+   "day": -3,
+   "start": "23:00",
+   "hours": 8.0,
+   "category": "Night",
+   "name": "Night M",
+   "counts_as_previous_day": false
+  },
+  {
+   "resident": "p01",
+   "day": -2,
+   "start": "07:00",
+   "hours": 8.0,
+   "category": "Day",
+   "name": "Day M",
+   "counts_as_previous_day": false
+  },
+  {
+   "resident": "p15",
+   "day": -2,
+   "start": "15:00",
+   "hours": 8.0,
+   "category": "Evening",
+   "name": "Evening T",
+   "counts_as_previous_day": false
+  },
+  {
+   "resident": "p07",
+   "day": -2,
+   "start": "23:00",
+   "hours": 8.0,
+   "category": "Night",
+   "name": "Night M",
+   "counts_as_previous_day": false
+  },
+  {
+   "resident": "p01",
+   "day": -1,
+   "start": "07:00",
+   "hours": 8.0,
+   "category": "Day",
+   "name": "Day M",
+   "counts_as_previous_day": false
+  },
+  {
+   "resident": "p15",
+   "day": -1,
+   "start": "15:00",
+   "hours": 8.0,
+   "category": "Evening",
+   "name": "Evening T",
+   "counts_as_previous_day": false
+  },
+  {
+   "resident": "p07",
+   "day": -1,
+   "start": "23:00",
+   "hours": 8.0,
+   "category": "Night",
+   "name": "Night M",
+   "counts_as_previous_day": false
+  }
+ ]
+}

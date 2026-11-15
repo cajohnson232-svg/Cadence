@@ -1,0 +1,29 @@
+# Render Blueprint. In Render: New > Blueprint > pick this repository. It creates the two things below
+# and wires them together. Step-by-step instructions are in DEPLOY.md.
+
+databases:
+  - name: cadence-db
+    plan: 0.1c-256mb          # smallest paid database: fine for one program
+    postgresMajorVersion: "16"
+    region: ohio
+
+services:
+  - type: web
+    name: cadence
+    runtime: docker           # built from the Dockerfile in this repository: the website and the scheduling engine together
+    region: ohio              # must be the same region as the database
+    plan: 1c-2g               # 1 CPU, 2 GB. The engine alone needs 250-400 MB while it runs; the 512 MB plan is too small
+    numInstances: 1           # exactly one: an engine run lives on the instance that started it
+    healthCheckPath: /api/health
+    autoDeployTrigger: commit # a new version goes live whenever the repository changes
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: cadence-db
+          property: connectionString
+      - key: SESSION_SECRET   # signs sign-in cookies. Render makes a random one; nobody needs to know it
+        generateValue: true
+      - key: SETUP_KEY        # typed once into the first-time setup page, to prove the site is yours
+        generateValue: true
+      - key: RULE_PARSER
+        value: mock

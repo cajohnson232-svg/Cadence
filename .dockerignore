@@ -1,0 +1,20 @@
+# Kept out of the image: local settings, installed packages and build output (the image makes its own),
+# and everything that is not needed to run the site.
+**/node_modules
+**/.next
+**/.env
+**/.env.*
+!**/.env.example
+web/src/generated
+**/__pycache__
+**/*.pyc
+.git
+deliver
+results
+old
+out
+tests
+datamodel
+web/e2e
+web/tests
+*.zip

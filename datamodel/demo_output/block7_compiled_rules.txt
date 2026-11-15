@@ -1,0 +1,53 @@
+Rule                  HARD  enforced                 Harper Kim                 Cannot work Night shifts at LBJ Hospital
+Rule                  HARD  enforced                 PGY-1                      No more than 17 shifts in the interval
+Rule                  HARD  enforced                 Morgan Nguyen              Cannot work on Thu from 00:00 for 13h
+Rule                  HARD  enforced                 Whole program              At least 10 hours off between shifts
+Rule                  HARD  enforced                 Whole program              No more than 60 scheduled clinical hours in any rolling 7-day period
+Rule                  HARD  enforced                 Whole program              At least one continuous 24 hours free of shifts and academic time in every 7 days
+Rule                  HARD  enforced                 Whole program              Time off after a shift is at least 1 x the length of that shift
+Rule                  HARD  enforced                 Whole program              No more than 8 night shifts in the interval
+Rule                  HARD  enforced                 Whole program              No more than 2 separate runs of night shifts in the interval
+Rule                  SOFT  enforced                 Whole program              Shifts rotate forward (day, evening, swing, night); avoid backward steps from one day to the next
+Rule                  SOFT  enforced                 Whole program              Each person's days, evenings and nights stay within 1 shift(s) of their fair share
+Rule                  SOFT  enforced                 Whole program              At least 7 days between runs of nights
+Rule                  SOFT  enforced                 Whole program              No overnight shift that ends on a vacation day
+Rule                  SOFT  enforced                 Whole program              No more than 45% of a person's scheduled hours are nights
+Rule                  SOFT  enforced                 LBJ Hospital               Each person's shifts in General and Critical care stay within 1 of each other
+Rule                  SOFT  enforced                 Memorial Hermann Hospital  Each person's shifts in Trauma and Medical stay within 1 of each other
+Rule                  SOFT  enforced                 Whole program              Prefer two or more days off in a row over isolated single days off
+Rule                  SOFT  enforced                 Whole program              Aim for a single run of nights per person, at most 6 nights long
+Rule                  SOFT  needs review             Kai Lee                    Try to keep Dr. Lee off the Sunday before boards
+Rule                  SOFT  stored only              Casey Chen                 Must not be on shift at the same time as Devon Diaz
+Rule                  SOFT  stored only              Whole program              Between 1 and 3 weekends worked in the interval
+Special staffing day  HARD  enforced                 Memorial Hermann Hospital  MLK Day: only the listed shifts run (4 line(s))
+Special staffing day  HARD  enforced                 LBJ Hospital               Department retreat: normal shifts with changes (2 line(s))
+Assignment            HARD  enforced                 Avery Adams                16-17 shifts at LBJ, MHH
+Request off           SOFT  enforced                 Avery Adams                Off 2027-01-09 to 2027-01-10 (Wedding)
+Request off           SOFT  enforced                 Avery Adams                Off 2027-01-22 to 2027-01-22
+Assignment            HARD  enforced                 Blake Brooks               12-14 shifts at LBJ, MHH (adjusted -4: Vacation week)
+Vacation              HARD  enforced                 Blake Brooks               Off 2027-01-11 to 2027-01-17
+Assignment            HARD  enforced                 Casey Chen                 16-17 shifts at LBJ, MHH
+Request off           -     not included (pending)   Casey Chen                 Off 2027-01-12 to 2027-01-12
+Assignment            HARD  enforced                 Devon Diaz                 16-17 shifts at MHH
+Assignment            HARD  enforced                 Emery Evans                16-17 shifts at LBJ
+First day off         SOFT  enforced                 Emery Evans                Off 2027-01-04 to 2027-01-04 (Coming off ICU nights)
+Assignment            HARD  enforced                 Finley Flores              16-17 shifts at LBJ, MHH
+Assignment            HARD  enforced                 Gray Garcia                15-17 shifts at LBJ, MHH
+Request off           SOFT  enforced                 Gray Garcia                Off 2027-01-16 to 2027-01-16
+Assignment            HARD  enforced                 Indra Iyer                 15-17 shifts at MHH
+Request off           -     not included (denied)    Indra Iyer                 Off 2027-01-05 to 2027-01-05
+Assignment            HARD  enforced                 Jordan Jones               13-15 shifts at LBJ (adjusted -2: Vacation)
+Vacation              HARD  enforced                 Jordan Jones               Off 2027-01-23 to 2027-01-26
+Assignment            HARD  enforced                 Harper Kim                 16-18 shifts at LBJ, MHH (adjusted +1: Make-up shift)
+Assignment            HARD  enforced                 Kai Lee                    15-17 shifts at LBJ, MHH
+Last day off          SOFT  enforced                 Kai Lee                    Off 2027-01-31 to 2027-01-31
+Assignment            HARD  enforced                 Logan Lopez                15-17 shifts at LBJ, MHH
+Assignment            HARD  enforced                 Morgan Nguyen              12-14 shifts at LBJ, MHH (adjusted -2: Chief duties)
+Assignment            HARD  enforced                 Noor Okafor                14-16 shifts at LBJ, MHH
+Request off           HARD  enforced                 Noor Okafor                Off 2027-01-30 to 2027-01-30 (Board exam)
+Assignment            HARD  enforced                 Oakley Patel               14-16 shifts at LBJ, MHH
+Assignment            HARD  enforced                 Parker Quinn               14-16 shifts at LBJ, MHH
+Assignment            HARD  enforced                 Quincy Reyes               14-16 shifts at MHH
+Assignment            HARD  enforced                 Riley Stone                7-8 shifts at MHH; present 14 of 28 days; limited to listed shifts
+Academic day          HARD  enforced                 PGY-1                      Intern skills lab: 2 session(s) in the interval; overlapping shifts are excused
+Academic day          HARD  enforced                 Everyone                   Wednesday conference: 3 session(s) in the interval; overlapping shifts are blocked; 1 personal exception(s)
