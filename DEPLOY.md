@@ -68,7 +68,7 @@ The repository must never contain a file called `.env`. The project's `.gitignor
    shows `migrate: database is up to date` followed by `Ready`, and the service is marked live.
 
 If the build stops with an error, copy the last 30 lines of the log and give them to whoever is helping you
-(Claude can read them). **This build file has not been run on Render yet**: see "What was and was not tested".
+(Claude can read them).
 
 ## Part 3. First-time setup
 
@@ -171,10 +171,8 @@ Tested here, on a Linux machine, following the same steps the build file lists:
 
 Not tested:
 
-* **The Docker build itself, and Render.** The machine this was built on could not download the base images, and
-  nothing has been deployed to Render from here. The first real build may need a correction to `Dockerfile` or
-  `render.yaml`. Field names and plan names in `render.yaml` were checked against Render's Blueprint reference
-  on 15 Nov 2026.
+* **The Docker build and Render** were not run from here (the base images could not be downloaded), but the
+  first version has been deployed on Render and runs (17 Nov 2026). Updates since then were tested here only.
 * Running over HTTPS behind Render's network. In particular, the limit on wrong sign-in attempts per network
   address depends on how Render reports a visitor's address, which could not be checked here. The limit per
   email address does not depend on it.
