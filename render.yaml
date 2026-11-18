@@ -25,5 +25,7 @@ services:
         generateValue: true
       - key: SETUP_KEY        # typed once into the first-time setup page, to prove the site is yours
         generateValue: true
-      - key: RULE_PARSER
-        value: mock
+      - key: ANTHROPIC_API_KEY  # optional: turns on Claude for reading rules, backup rules and special days.
+        sync: false               # secret: you paste it in Render's Environment tab (see DEPLOY.md). Without it a simple built-in reader is used
+      - key: ANTHROPIC_MODEL      # optional: which Claude model to use
+        value: claude-sonnet-5-5

@@ -47,7 +47,9 @@ ok(row["runStatus"] == "RUNNING", "the process that started the run has exited a
 ok(tsx("wait", sid) == "DONE", "a different process collects the result and imports it")
 
 sch = db(f"""SELECT "inputSnapshot", report FROM "Schedule" WHERE id = '{sid}'""")[0]
-rows = db(f"""SELECT "participantId", "shiftId", "specialStaffingShiftId", name, "dutyDate", "startsAt", "endsAt" FROM "ScheduledShift" WHERE "scheduleId" = '{sid}'""")
+every = db(f"""SELECT "participantId", "shiftId", "specialStaffingShiftId", name, "dutyDate", "startsAt", "endsAt", backup FROM "ScheduledShift" WHERE "scheduleId" = '{sid}'""")
+rows = [r for r in every if not r["backup"]]                  # clinical shifts; backup (on-call) days are checked separately below
+brows = [r for r in every if r["backup"]]
 P = Problem(sch["inputSnapshot"])
 start = datetime.combine(P.start_date, datetime.min.time())
 minutes = lambda t: int((datetime.fromisoformat(t) - start).total_seconds() // 60)          # noqa: E731
@@ -81,11 +83,32 @@ rep = sch["report"]
 ok(n_open == rep["validator"]["open_shifts"] == sum(1 for r in rows if not r["participantId"]), f"open shifts agree: stored rows, checker and report ({n_open})")
 ok(len(short) == len(rep["validator"]["under_contract_minimum"]), "people under their contract minimum agree with the report")
 soft = validator.soft_metrics(P, assignment)
-scale = {"day/evening/night balance": 10.0}
+scale = {"day/evening/night balance": 10.0, "site split": 100.0}
 ok(all(abs(g["score"] - (n_open if g["name"] == "open shifts" else soft.get(g["name"], 0) / scale.get(g["name"], 1.0))) < 1e-6 for g in rep["goals"]),
    "every goal score in the report is reproduced from the stored rows")
 peak = validator.duty_stats(P, assignment)["peak_rolling_7day_hours"]
 ok(abs(peak - rep["duty"]["peak_rolling_7day_hours"]) < 1e-6 and peak <= P.rules.max_week_minutes / 60, f"most hours in any 7 days: {peak:g}, within the limit of {P.rules.max_week_minutes / 60:g}")
+# backup days: rebuild them from the stored rows alone and run the independent backup checker on them
+from cadence import backup                                           # noqa: E402
+blines = backup.lines(P)
+bdays, bunmatched = {}, 0
+for r in brows:
+    day = (datetime.fromisoformat(r["dutyDate"]) - start).days
+    a, b = minutes(r["startsAt"]), minutes(r["endsAt"])
+    L = next((l for l in blines if l.name == r["name"] and l.window(day) == (a, b)), None)
+    if L is None:
+        bunmatched += 1
+        continue
+    e = bdays.setdefault((day, L.k), {"day": day, "line": L.k, "start": a, "end": b, "assigned": []})
+    if r["participantId"]:
+        e["assigned"].append(r["participantId"])
+ok(bunmatched == 0 and len(brows) > 0 if blines else not brows, f"every stored backup row matches a backup shift of the inputs ({len(brows)} rows)")
+BV = backup.check(P, assignment, {"days": list(bdays.values())})
+ok(not BV, f"the independent backup checker, run on the stored rows, finds nothing wrong ({len(BV)})")
+for v in BV[:5]:
+    print("     ", v)
+rb = rep.get("backup") or {}
+ok(sum(1 for e in bdays.values() if e["assigned"]) == sum(1 for e in rb.get("days", []) if e["assigned"]), "backup days filled agree: stored rows and report")
 print(f"engine used: {rep['engine']['backend']}, {rep['engine']['strategy']}")
 subprocess.run(["psql", url, "-q", "-c", f"""DELETE FROM "Schedule" WHERE id = '{sid}'"""], check=True)
 print("STORED SCHEDULE CHECK PASSED" if not fails else f"{fails} FAILED")

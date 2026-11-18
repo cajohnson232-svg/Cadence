@@ -20,6 +20,12 @@ configs = {
     "8h+10h+12h, late overnights, excused academic time": make_config((8, 10, 12), 12, seed=22, late_nights=True,
                                                                          academic_policy="excused"),
 }
+# give a third of the residents a target split between the two sites (exercises "site split")
+for cfg in configs.values():
+    sites = sorted({t.get("site", "") for t in cfg["shift_templates"]})
+    for i, r in enumerate(cfg["residents"]):
+        if i % 3 == 0 and len(sites) >= 2 and not r.get("sites"):
+            r["site_share"] = {sites[0]: 60 + 5 * (i % 4), sites[1]: 40 - 5 * (i % 4)}
 for name, cfg in configs.items():
     P = Problem(cfg)
     share = P.balance_share()

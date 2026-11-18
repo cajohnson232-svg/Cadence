@@ -14,15 +14,17 @@ export async function publishChecks(sid: string, programId: string) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const rep = sch.report as any;
   const violations: string[] = rep?.validator?.hard_violations ?? [];
-  const open = await db.scheduledShift.count({ where: { scheduleId: sid, participantId: null } });
+  const open = await db.scheduledShift.count({ where: { scheduleId: sid, participantId: null, backup: false } });
+  const backupOpen = await db.scheduledShift.count({ where: { scheduleId: sid, participantId: null, backup: true } });
   const stale = !!sch.inputHash && sch.inputHash !== fingerprint((await compileInterval(sch.intervalId)).config);
   const blocked = sch.runStatus !== "DONE" ? "Only a finished schedule can be published."
     : violations.length ? `This schedule breaks ${violations.length} hard rule${violations.length === 1 ? "" : "s"} and cannot be published.` : null;
   const caveats = [
     ...(open ? [`${open} shift${open === 1 ? " is" : "s are"} still open`] : []),
+    ...(backupOpen ? [`${backupOpen} backup day${backupOpen === 1 ? " has" : "s have"} nobody on backup`] : []),
     ...(stale ? ["the inputs have changed since it was generated"] : []),
   ];
-  return { sch, violations, open, stale, blocked, caveats };
+  return { sch, violations, open, backupOpen, stale, blocked, caveats };
 }
 
 export type PublishResult = { ok: true; intervalName: string; open: number; stale: boolean } | { ok: false; error: string };

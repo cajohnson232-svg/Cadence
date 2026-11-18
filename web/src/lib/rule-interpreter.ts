@@ -1,10 +1,11 @@
 // "Other restrictions": plain English -> a PROPOSED structured rule.
 //
 // The language model sits behind the RuleInterpreter interface so the provider can be swapped.
-// RULE_PARSER=mock (the default) uses the keyword-based stand-in below, which needs no network
-// and no key. To add a real provider, implement RuleInterpreter and register it in PROVIDERS.
+// With ANTHROPIC_API_KEY set, Claude answers (see lib/ai.ts); without it, or with AI_PROVIDER=mock,
+// the keyword-based stand-in below does, which needs no network and no key.
 // Whatever the provider returns is only ever a proposal: the admin edits and confirms it.
-import { TEMPLATE } from "./rule-templates";
+import { TEMPLATE, TEMPLATES } from "./rule-templates";
+import { aiConfigured, aiLabel, askForTool, contextBlock } from "./ai";
 
 export type Named = { id: string; name: string };
 export type InterpreterContext = {
@@ -64,7 +65,7 @@ function dateRange(t: string, today: string): { from: string | null; to: string 
 }
 
 export class MockRuleInterpreter implements RuleInterpreter {
-  readonly name = "mock (keyword-based stand-in, development only)";
+  readonly name = "keyword stand-in (built in)";
 
   async interpret(text: string, ctx: InterpreterContext): Promise<Proposal> {
     const t = " " + text.toLowerCase().replace(/[’']/g, "'").replace(/\s+/g, " ") + " ";
@@ -132,10 +133,67 @@ export class MockRuleInterpreter implements RuleInterpreter {
   }
 }
 
-const PROVIDERS: Record<string, () => RuleInterpreter> = {
-  mock: () => new MockRuleInterpreter(),
-  // anthropic: () => new AnthropicRuleInterpreter(process.env.ANTHROPIC_API_KEY!),   <- add real providers here
-};
+// ───────────────────────────── Claude ─────────────────────────────
+export class ClaudeRuleInterpreter implements RuleInterpreter {
+  get name() { return aiLabel(); }
+
+  async interpret(text: string, ctx: InterpreterContext): Promise<Proposal> {
+    const templates = TEMPLATES.map((t) => ({ key: t.key, label: t.label, sentence: t.sentence, scopes: t.scopes, levels: t.levels, params: t.params }));
+    const out = await askForTool<Proposal>({
+      system: [
+        "You turn a residency program administrator's plain-English scheduling restriction into ONE structured rule for an emergency medicine scheduling app.",
+        "Choose the template that matches the meaning exactly. Use only ids from the lists given. Parameters must match that template's JSON schema.",
+        "scope: PROGRAM (everyone), ROLE, INSTITUTION or PARTICIPANT, and it must be one the template allows; fill only the matching id field.",
+        "level: HARD when the wording is absolute (must, cannot, never); SOFT for preferences (prefer, try, avoid, ideally), with weight 1-10.",
+        "Dates are YYYY-MM-DD; a month range with no year means the next such range from today.",
+        "If nothing fits, use template \"custom\" with params {\"text\": <the original text>}, level SOFT and needsReview true. Never invent people, roles or places.",
+        "explanation: short plain sentences saying how you read the text, for the administrator to check.",
+      ].join("\n"),
+      user: `${contextBlock({ today: ctx.today, roles: ctx.roles, institutions: ctx.institutions, categories: ctx.categories, participants: ctx.participants })}\n\nTemplates:\n${JSON.stringify(templates)}\n\nRestriction:\n${text}`,
+      tool: { name: "propose_rule", description: "The one rule the restriction describes.", input_schema: {
+        type: "object", required: ["template", "params", "scope", "level", "needsReview", "explanation"],
+        properties: {
+          template: { type: "string", enum: TEMPLATES.map((t) => t.key) }, params: { type: "object" },
+          scope: { type: "string", enum: ["PROGRAM", "INSTITUTION", "ROLE", "PARTICIPANT"] },
+          institutionId: { type: ["string", "null"] }, roleId: { type: ["string", "null"] }, participantId: { type: ["string", "null"] },
+          level: { type: "string", enum: ["HARD", "SOFT"] }, weight: { type: ["integer", "null"], minimum: 1, maximum: 10 },
+          activeFrom: { type: ["string", "null"] }, activeTo: { type: ["string", "null"] }, notes: { type: "string" },
+          needsReview: { type: "boolean" }, explanation: { type: "array", items: { type: "string" } },
+        } } },
+    });
+    // keep only what exists in this program; anything else is cleared and flagged
+    const ids = { p: new Set(ctx.participants.map((x) => x.id)), r: new Set(ctx.roles.map((x) => x.id)), i: new Set(ctx.institutions.map((x) => x.id)) };
+    const tpl = TEMPLATE[out.template] ? out.template : "custom";
+    const scope = (["PROGRAM", "INSTITUTION", "ROLE", "PARTICIPANT"] as const).includes(out.scope) && TEMPLATE[tpl].scopes.includes(out.scope) ? out.scope : "PROGRAM";
+    const date = (d: unknown) => (typeof d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : null);
+    const p: Proposal = {
+      template: tpl, params: tpl === "custom" ? { text: text.trim() } : (out.params ?? {}), scope,
+      participantId: scope === "PARTICIPANT" && ids.p.has(out.participantId ?? "") ? out.participantId : null,
+      roleId: scope === "ROLE" && ids.r.has(out.roleId ?? "") ? out.roleId : null,
+      institutionId: scope === "INSTITUTION" && ids.i.has(out.institutionId ?? "") ? out.institutionId : null,
+      level: out.level === "SOFT" ? "SOFT" : "HARD", weight: out.level === "SOFT" ? Math.min(10, Math.max(1, Number(out.weight) || 5)) : null,
+      activeFrom: date(out.activeFrom), activeTo: date(out.activeTo), notes: typeof out.notes === "string" ? out.notes.slice(0, 500) : "",
+      needsReview: tpl === "custom" || !!out.needsReview, explanation: Array.isArray(out.explanation) ? out.explanation.map(String).slice(0, 12) : [],
+    };
+    if (!TEMPLATE[p.template].levels.includes(p.level)) p.level = TEMPLATE[p.template].levels[0] as Proposal["level"];
+    if (scope !== out.scope || (scope !== "PROGRAM" && !(p.participantId || p.roleId || p.institutionId))) { p.needsReview = true; p.explanation.push("Who this applies to needs checking."); }
+    return p;
+  }
+}
+
+/** Claude when a key is set (unless AI_PROVIDER=mock); otherwise the keyword stand-in. */
 export function getRuleInterpreter(): RuleInterpreter {
-  return (PROVIDERS[process.env.RULE_PARSER ?? "mock"] ?? PROVIDERS.mock)();
+  return aiConfigured() ? new ClaudeRuleInterpreter() : new MockRuleInterpreter();
+}
+
+/** Ask the chosen interpreter; if Claude fails, answer with the stand-in and say why. */
+export async function interpretWithFallback(text: string, ctx: InterpreterContext): Promise<{ proposal: Proposal; interpreter: string; fellBack?: string }> {
+  const it = getRuleInterpreter();
+  try {
+    return { proposal: await it.interpret(text, ctx), interpreter: it.name };
+  } catch (e) {
+    if (it instanceof MockRuleInterpreter) throw e;
+    const mock = new MockRuleInterpreter();
+    return { proposal: await mock.interpret(text, ctx), interpreter: mock.name, fellBack: (e as Error).message };
+  }
 }

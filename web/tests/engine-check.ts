@@ -36,16 +36,21 @@ async function main() {
   ok(running.runStatus === "RUNNING" && running.workerPid && running.inputHash === fingerprint(c.config), "the run is recorded as running, with the fingerprint of its inputs");
   const st = await until(a.scheduleId, 120);
   ok(st === "DONE", `the run finishes and is imported (status ${st})`);
-  const sch = await db.schedule.findUniqueOrThrow({ where: { id: a.scheduleId }, include: { shifts: true } });
+  const sch0 = await db.schedule.findUniqueOrThrow({ where: { id: a.scheduleId }, include: { shifts: true } });
+  const sch = { ...sch0, shifts: sch0.shifts.filter((x) => !x.backup) };            // backup (on-call) days are checked separately below
+  const bk = sch0.shifts.filter((x) => x.backup), bkRep = (sch0.report as any).backup;
+  ok(bkRep && bk.length === bkRep.days.length && bk.filter((x) => x.participantId).length === bkRep.days.reduce((t: number, d: any) => t + d.assigned.length, 0),
+    `backup days are stored too, marked as backup (${bk.length} days, ${bk.filter((x) => x.participantId).length} covered)`);
+  ok(bk.every((b) => !sch.shifts.some((x) => x.participantId && x.participantId === b.participantId && x.startsAt < b.endsAt && b.startsAt < x.endsAt)), "nobody is on backup while on a shift");
   const rep = sch.report as any;
   const total = rep.validator.total_shifts as number;
   ok(sch.shifts.length === total, `one row per person per shift: ${sch.shifts.length} rows for ${total} shifts to fill`);
   ok(sch.shifts.filter((s) => !s.participantId).length === rep.validator.open_shifts, `open shifts are stored as rows without a person (${rep.validator.open_shifts})`);
   ok(rep.validator.hard_violations.length === 0, "the engine's independent check found no hard-rule violations");
-  ok(!("slots" in rep) && rep.goals.length === 11 && rep.residents.length === (c.config as any).residents.length, "the report keeps goals and per-person figures, not a second copy of the shifts");
+  ok(!("slots" in rep) && rep.goals.length === 12 && rep.residents.length === (c.config as any).residents.length, "the report keeps goals and per-person figures, not a second copy of the shifts");
   ok(sch.shifts.every((s) => s.endsAt > s.startsAt && s.institutionId && s.categoryId), "every row has a place, a category and a valid time");
   ok(!existsSync(running.workDir!), "the run's work folder is removed after import");
-  ok((await settleRun(a.scheduleId)) === "DONE" && (await db.scheduledShift.count({ where: { scheduleId: a.scheduleId } })) === total, "settling again does not import twice");
+  ok((await settleRun(a.scheduleId)) === "DONE" && (await db.scheduledShift.count({ where: { scheduleId: a.scheduleId, backup: false } })) === total, "settling again does not import twice");
   // the stored rows agree with the engine's own per-person counts
   const per = new Map<string, number>();
   for (const s of sch.shifts) if (s.participantId) per.set(s.participantId, (per.get(s.participantId) ?? 0) + 1);
@@ -67,7 +72,7 @@ async function main() {
   if (!a2.ok) throw new Error(a2.error);
   ok((await until(a2.scheduleId, 120)) === "DONE", "a second schedule can be generated while one is published");
   ok(!(await publishChecks(a2.scheduleId, PROG))!.stale, "a schedule generated after the change is up to date");
-  const chen = await db.scheduledShift.count({ where: { scheduleId: a2.scheduleId, participantId: "p03", startsAt: { gte: new Date("2027-01-12T00:00:00Z"), lt: new Date("2027-01-13T00:00:00Z") } } });
+  const chen = await db.scheduledShift.count({ where: { scheduleId: a2.scheduleId, backup: false, participantId: "p03", startsAt: { gte: new Date("2027-01-12T00:00:00Z"), lt: new Date("2027-01-13T00:00:00Z") } } });
   const repl = await publish(a2.scheduleId, PROG, false);
   ok(repl.ok, "the newer schedule can be published");
   const states = Object.fromEntries((await db.schedule.findMany({ where: { id: { in: [a.scheduleId, a2.scheduleId] } } })).map((x) => [x.id, x.status]));
@@ -81,11 +86,11 @@ async function main() {
   const next = await db.interval.create({ data: { programId: PROG, name: "Block 8 (test)", startDate: new Date("2027-02-01"), endDate: new Date("2027-02-28") } });
   const everyone = await db.assignment.findMany({ where: { programId: PROG, endDate: { gte: new Date("2027-01-31") } } });
   for (const x of everyone) await db.assignment.create({ data: { programId: PROG, participantId: x.participantId, startDate: next.startDate, endDate: next.endDate, minShifts: x.minShifts, maxShifts: x.maxShifts } });
-  const lastWeek = await db.scheduledShift.count({ where: { scheduleId: a2.scheduleId, participantId: { in: everyone.map((x) => x.participantId) }, dutyDate: { gte: new Date("2027-01-25") } } });
+  const lastWeek = await db.scheduledShift.count({ where: { scheduleId: a2.scheduleId, backup: false, participantId: { in: everyone.map((x) => x.participantId) }, dutyDate: { gte: new Date("2027-01-25") } } });
   const hist = ((await compileInterval(next.id)).config as any).history as any[];
   ok(lastWeek > 0 && hist.length === lastWeek, `the next interval's inputs carry the published schedule's last week (${hist.length} shifts, ${lastWeek} expected)`);
   ok(hist.every((h) => h.day < 0 && h.day >= -8), "and they are dated before the new interval starts");
-  const stored = new Set((await db.scheduledShift.findMany({ where: { scheduleId: a2.scheduleId, participantId: { not: null } } })).map((r) => `${r.participantId}|${r.startsAt.toISOString()}|${r.endsAt.toISOString()}`));
+  const stored = new Set((await db.scheduledShift.findMany({ where: { scheduleId: a2.scheduleId, backup: false, participantId: { not: null } } })).map((r) => `${r.participantId}|${r.startsAt.toISOString()}|${r.endsAt.toISOString()}`));
   const at = (h: any, extra = 0) => new Date(next.startDate.getTime() + (h.day * 1440 + toMinutes(h.start) + extra) * 60000).toISOString();
   ok(hist.every((h) => stored.has(`${h.resident}|${at(h)}|${at(h, h.hours * 60)}`)), "each inherited shift is the same person, start and end as a stored shift");
   await unpublish(IV, PROG);
@@ -96,6 +101,21 @@ async function main() {
   await db.schedule.deleteMany({ where: { intervalId: IV } });
   await db.timeOff.update({ where: { id: "to7" }, data: { status: "PENDING" } });
   await db.interval.update({ where: { id: IV }, data: { status: "DRAFT", lockedAt: null } });
+
+  // 1c. optimize: starts from an existing schedule, saved as a new draft, never worse on any goal in priority order
+  const base = await startRun(IV, null, { seconds: 6, polish: 2 });
+  if (!base.ok) throw new Error(base.error);
+  ok((await until(base.scheduleId, 120)) === "DONE", "a quick schedule to optimize");
+  const opt = await startRun(IV, null, { seconds: 25, polish: 10 }, { scheduleId: base.scheduleId, label: "Run 1" });
+  if (!opt.ok) throw new Error(opt.error);
+  ok((await until(opt.scheduleId, 150)) === "DONE", "optimizing it finishes");
+  const [b0, o1] = await Promise.all([base.scheduleId, opt.scheduleId].map((id) => db.schedule.findUniqueOrThrow({ where: { id } })));
+  const score = (x: any) => (x.report.goals as any[]).map((g) => g.score);
+  const B = score(b0), O = score(o1);
+  const firstDiff = B.findIndex((v, i) => Math.abs(v - O[i]) > 1e-9);
+  ok(firstDiff === -1 || O[firstDiff] < B[firstDiff], `the optimized schedule is no worse, goal by goal in priority order (first difference: ${firstDiff === -1 ? "none" : `${(o1.report as any).goals[firstDiff].name} ${B[firstDiff]} -> ${O[firstDiff]}`})`);
+  ok(/^Run \d+ \(optimized from Run 1\)$/.test(o1.label ?? "") && b0.status === "DRAFT" && (await db.scheduledShift.count({ where: { scheduleId: base.scheduleId } })) > 0, `it is a new draft (${o1.label}); the original is untouched`);
+  await db.schedule.deleteMany({ where: { id: { in: [base.scheduleId, opt.scheduleId] } } });
 
   // 2. cancel
   const b = await startRun(IV, null, { seconds: 60, polish: 30 });

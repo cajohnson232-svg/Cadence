@@ -50,7 +50,7 @@ const ok = (cond, what) => { if (cond) { pass++; console.log("ok   " + what); } 
   ok(/Nguyen[\s\S]*-2[\s\S]*Chief duties[\s\S]*12–14/.test(await p.locator('[data-testid="adjustments-table"]').innerText()), "adjustments tab shows the adjusted contract (Nguyen 12-14)");
   await go("/intervals/iv_7?tab=rules");
   const rules = await p.locator('[data-testid="compiled-rules"]').innerText();
-  ok((await p.locator('[data-testid="compiled-rules"] tbody tr').count()) === 53, "compiled rules lists 53 entries, as the Python bridge does");
+  ok((await p.locator('[data-testid="compiled-rules"] tbody tr').count()) === 58, "compiled rules lists all 58 entries for Block 7");
   ok(rules.includes("Cannot work Night shifts at LBJ Hospital") && rules.includes("Stored only") && rules.includes("Needs review") && rules.includes("Not included (pending)"), "compiled rules marks enforced / stored only / needs review / not included");
   ok((await text()).includes("1 time-off request(s) are still pending"), "compiled rules warns about pending requests");
   await shot("hub-compiled-rules");
@@ -79,16 +79,7 @@ const ok = (cond, what) => { if (cond) { pass++; console.log("ok   " + what); } 
   await go("/requests?q=Adams"); ok((await p.locator("tbody tr", { hasText: "Jan 14" }).innerText()).includes("Denied"), "admin turns an approved request back off");
 
   // ── form validation ─────────────────────────────────────────────────────
-  await go("/assignments/new");
-  await p.getByLabel("Participant").selectOption({ label: "Adams, Avery (PGY-1)" }); await p.getByLabel("Start date").fill("2027-01-20"); await p.getByLabel("End date").fill("2027-02-05");
-  await p.getByLabel("MHH · Memorial Hermann Hospital").check(); await save();
-  ok((await text()).includes("Overlaps this participant's assignment"), "overlapping assignments are refused in the form, naming the clash");
-  await p.getByLabel("Start date").fill("2027-02-01"); await p.getByLabel("End date").fill("2027-01-31"); await save();
-  ok((await text()).includes("Must be on or after the start date"), "end before start is refused");
-  await p.getByLabel("End date").fill("2027-02-28"); await save();
-  if (process.env.DEBUG) console.log("  [after 3rd save]", p.url(), (await text()).split("\n").filter((l) => /saved|Not saved|Overlaps|Must|Required/.test(l)).join(" | "));
-  ok(p.url().includes("/assignments?notice") && (await text()).includes("Assignment saved"), "a valid assignment saves, with shift counts pre-filled from the role");
-  ok(/Adams, Avery[\s\S]*?16–18/.test(await p.locator("tbody tr", { hasText: "Feb 1" }).innerText()), "role defaults (16-18) were used for the new assignment");
+  // assignments are now per participant and per interval: covered by e2e/assignments.cjs
 
   await go("/shifts/new");
   await p.getByLabel("Start time").fill("22:30"); await p.getByLabel("Length (hours)").fill("9.5");

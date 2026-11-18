@@ -121,26 +121,40 @@ export async function AcademicExtras({ academicDayId, programId }: { academicDay
     db.academicDayException.findMany({ where: { academicDayId }, include: { participant: true }, orderBy: { startDate: "asc" } }),
     db.participant.findMany({ where: { programId, archivedAt: null }, orderBy: [{ lastName: "asc" }] }),
   ]);
+  const off = occ.filter((o) => o.cancelled), changed = occ.filter((o) => !o.cancelled);
   return (
     <>
-      <Section title="Weeks that differ" hint="A single session at a different time or length, with a different overlap setting, or cancelled.">
+      <Section title="Dates it does not happen" hint="Holidays and other dates the session is not held. Nobody attends, and shifts that day are scheduled normally.">
+        <div className="flex flex-wrap gap-2 p-3" data-testid="skip-dates">
+          {off.map((o) => (
+            <span key={o.id} className="inline-flex items-center gap-2 rounded-md border border-line bg-surface px-2 py-1 text-sm">{fmtDate(o.date)}
+              <Del action={deleteAcademicChild.bind(null, "occurrence", o.id)} /></span>
+          ))}
+          {!off.length && <span className="text-sm text-muted">It happens every week in its date range.</span>}
+        </div>
+        <form action={addOccurrence.bind(null, academicDayId)} className="flex flex-wrap items-end gap-3 border-t border-line p-3">
+          <input type="hidden" name="cancelled" value="on" />
+          <div><Label htmlFor="skip-date">Date</Label><Input id="skip-date" name="date" type="date" required className="w-40" /></div>
+          <Button variant="outline" size="sm">Add date</Button>
+        </form>
+      </Section>
+      <Section title="Weeks that differ" hint="A single session at a different time or length, or with a different overlap setting.">
         <table className="w-full">
           <thead className="border-b border-line bg-surface"><tr><th className={th}>Date</th><th className={th}>Change</th><th className={th} /></tr></thead>
           <tbody className="divide-y divide-line">
-            {occ.map((o) => (
+            {changed.map((o) => (
               <tr key={o.id}><td className={td}>{fmtDate(o.date)}</td>
                 <td className={td}>{o.cancelled ? <Badge tone="red">Cancelled</Badge> : [o.startMinute != null && `starts ${hhmm(o.startMinute)}`, o.durationMinutes && `lasts ${fmtHours(o.durationMinutes)}`, o.overlapPolicy && `overlapping shifts ${o.overlapPolicy.toLowerCase()}`].filter(Boolean).join(", ") || "No change"}</td>
                 <td className={td}><Del action={deleteAcademicChild.bind(null, "occurrence", o.id)} /></td></tr>
             ))}
-            {!occ.length && <tr><td className="px-3 py-4 text-sm text-muted" colSpan={3}>Every week follows the usual time.</td></tr>}
+            {!changed.length && <tr><td className="px-3 py-4 text-sm text-muted" colSpan={3}>Every week follows the usual time.</td></tr>}
           </tbody>
         </table>
         <form action={addOccurrence.bind(null, academicDayId)} className="flex flex-wrap items-end gap-3 border-t border-line p-3">
           <div><Label htmlFor="o-date">Date</Label><Input id="o-date" name="date" type="date" className="w-40" /></div>
           <div><Label htmlFor="o-start">Start</Label><Input id="o-start" name="start" type="time" className="w-28" /></div>
           <div><Label htmlFor="o-hours">Hours</Label><Input id="o-hours" name="hours" type="number" step={0.25} min={0.25} max={24} className="w-24" /></div>
-          <div><Label htmlFor="o-policy">Overlapping shifts</Label><Select id="o-policy" name="policy" defaultValue="" className="w-36"><option value="">As usual</option><option value="BLOCKED">Blocked</option><option value="EXCUSED">Excused</option></Select></div>
-          <label className="flex h-9 items-center gap-1.5 text-sm"><input type="checkbox" name="cancelled" /> Cancelled</label>
+          <div><Label htmlFor="o-policy">Can&apos;t work an overlapping shift?</Label><Select id="o-policy" name="policy" defaultValue="" className="w-36"><option value="">As usual</option><option value="BLOCKED">Yes</option><option value="EXCUSED">No</option></Select></div>
           <Button variant="outline" size="sm">Add</Button>
         </form>
       </Section>

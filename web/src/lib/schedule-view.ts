@@ -8,6 +8,7 @@ type Any = any;
 export const GOALS: Record<string, { label: string; counts: string }> = {
   "open shifts": { label: "Every shift filled", counts: "shifts left open" },
   "contract shortfall": { label: "Everyone reaches their minimum shifts", counts: "shifts short of a minimum" },
+  "site split": { label: "Split between institutions", counts: "shifts beyond the one-shift tolerance of each person's target split" },
   "backward rotations": { label: "Forward rotation", counts: "times someone moves to an earlier shift type the next day" },
   "day/evening/night balance": { label: "Balance across shift types", counts: "shifts beyond the one-shift tolerance" },
   "night runs too close": { label: "Time between runs of nights", counts: "runs of nights that start too soon after the last" },

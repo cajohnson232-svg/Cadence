@@ -9,12 +9,13 @@ import { cancelSchedule, discardSchedule, generateSchedule, setIntervalStatus, s
 import { BUDGETS, runProgress, settleInterval } from "@/lib/engine";
 import { fmtDuration, fmtWhen, shiftsToFill, standing } from "@/lib/schedule-view";
 import { RunProgress } from "@/components/run-progress";
+import { addPriorShift, clearPriorShifts, deletePriorShift, pastePriorShifts } from "@/app/prior-actions";
 import { Select } from "@/components/ui/input";
 import { Flash } from "@/components/entity-pages";
 import { RequestStatusButtons } from "@/components/request-buttons";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge, Card, Notice, td, th, type Tone } from "@/components/ui/misc";
-import { DOW, addDays, cn, dow, fmtDate, fmtRange, fmtShort, hhmm, overlaps, toMinutes, ymd } from "@/lib/util";
+import { DOW, addDays, cn, dow, fmtDate, fmtRange, fmtShort, hhmm, overlaps, shiftTimes, toMinutes, ymd } from "@/lib/util";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Any = any;
@@ -204,14 +205,16 @@ async function Requests({ c, id, programId }: { c: C; id: string; programId: str
             {people.map((p) => {
               const mine = off.filter((t) => t.participantId === p.id);
               const vac = mine.filter((t) => t.kind === "VACATION");
-              const req = mine.filter((t) => t.kind !== "VACATION");
+              const req = mine.filter((t) => t.kind !== "VACATION" && t.kind !== "REQUIRED_OFF");
+              const must = mine.filter((t) => t.kind === "REQUIRED_OFF");
               const counted = req.filter((t) => t.kind === "REQUEST_OFF" && t.status !== "DENIED");
               const used = counted.reduce((x, t) => x + requestDays(t), 0);
               const high = counted.filter((t) => t.priority === "HIGH").reduce((x, t) => x + requestDays(t), 0);
               const over = used > a.days || high > a.high;
               return (
                 <tr key={p.id}>
-                  <td className={td}><span className="font-medium">{person(p)}</span><div className="text-xs text-muted">{p.role.name}</div></td>
+                  <td className={td}><span className="font-medium">{person(p)}</span><div className="text-xs text-muted">{p.role.name}</div>
+                    {must.length > 0 && <Link href={`/assignments/${p.id}?interval=${id}#time-off`} className="text-xs text-brand hover:underline">Required time off: {must.map((t) => fmtRange(t.startDate, t.endDate)).join(", ")}</Link>}</td>
                   <td className={td}>
                     {vac.length ? vac.map((t) => (
                       <div key={t.id} className="flex items-center gap-1.5">
@@ -250,7 +253,7 @@ async function Adjustments({ c, id }: { c: C; id: string }) {
     <>
       <div className="mb-3 flex items-center gap-3 text-sm">
         <span className="text-muted">Each participant&apos;s shift count for this interval: their assignment, plus or minus any adjustments.</span>
-        <Link href={`/adjustments/new?intervalId=${id}`} className={cn(buttonVariants({ variant: "outline", size: "sm" }), "ml-auto")}>New adjustment</Link>
+        <span className="ml-auto text-xs text-muted">Adjustments are made on each participant&apos;s page under Assignments.</span>
       </div>
       <Card className="overflow-x-auto">
         <table className="w-full" data-testid="adjustments-table">
@@ -263,11 +266,11 @@ async function Adjustments({ c, id }: { c: C; id: string }) {
                 <tr key={r.id}>
                   <td className={td}><span className="font-medium">{r.name}</span></td>
                   <td className={td}>{a.map((x) => (
-                    <div key={x.id}><Link href={`/assignments/${x.id}`} className="text-brand hover:underline">{fmtRange(x.startDate, x.endDate)}</Link>
-                      <span className="text-muted"> · {x.minShifts === x.maxShifts ? x.minShifts : `${x.minShifts}–${x.maxShifts}`} shifts · {x.institutions.map((i) => i.institution.shortCode).join(", ")}</span></div>
+                    <div key={x.id}><Link href={`/assignments/${r.id}?interval=${id}`} className="text-brand hover:underline">{fmtRange(x.startDate, x.endDate)}</Link>
+                      <span className="text-muted"> · {x.minShifts == null ? "role's shifts" : x.minShifts === x.maxShifts ? `${x.minShifts} shifts` : `${x.minShifts}–${x.maxShifts} shifts`} · {x.institutions.map((i) => i.institution.shortCode).join(", ")}</span></div>
                   ))}</td>
                   <td className={td}>{mine.length ? mine.map((x) => (
-                    <div key={x.id}><Link href={`/adjustments/${x.id}`} className="text-brand hover:underline">{x.delta > 0 ? "+" : ""}{x.delta}</Link> <span className="text-muted">{x.reason}</span></div>
+                    <div key={x.id}><Link href={`/assignments/${x.participantId}?interval=${id}#adjustments`} className="text-brand hover:underline">{x.delta > 0 ? "+" : ""}{x.delta}</Link> <span className="text-muted">{x.reason}</span></div>
                   )) : <span className="text-muted">—</span>}</td>
                   <td className={cn(td, "font-medium tabular-nums")}>{r.shifts_min === r.shifts_max ? r.shifts_min : `${r.shifts_min}–${r.shifts_max}`}</td>
                 </tr>
@@ -336,11 +339,16 @@ async function ScheduleTab({ c, id, enforced }: { c: C; id: string; enforced: nu
   const [program, schedules, openRows] = await Promise.all([
     db.program.findUniqueOrThrow({ where: { id: iv.programId } }),
     db.schedule.findMany({ where: { intervalId: id }, include: { createdBy: true, _count: { select: { shifts: true } } }, orderBy: { createdAt: "desc" } }),
-    db.scheduledShift.groupBy({ by: ["scheduleId"], where: { schedule: { intervalId: id }, participantId: null }, _count: true }),
+    db.scheduledShift.groupBy({ by: ["scheduleId", "participantId"], where: { schedule: { intervalId: id }, backup: false }, _count: true }),
   ]);
-  const open = new Map(openRows.map((r) => [r.scheduleId, r._count]));
+  const open = new Map<string, number>(), clinical = new Map<string, number>();       // backup (on-call) rows are not shifts
+  for (const r of openRows) {
+    clinical.set(r.scheduleId, (clinical.get(r.scheduleId) ?? 0) + r._count);
+    if (!r.participantId) open.set(r.scheduleId, r._count);
+  }
   const active = schedules.find((x) => x.runStatus === "RUNNING" || x.runStatus === "QUEUED");
   const need = shiftsToFill(c.config, iv.startDate), people = (c.config.residents as Any[]).length;
+  const prevPublished = await db.schedule.findFirst({ where: { status: "PUBLISHED", interval: { programId: iv.programId, endDate: { lt: iv.startDate } } }, select: { id: true } });
   const tz = program.timezone;
   return (
     <>
@@ -383,6 +391,8 @@ async function ScheduleTab({ c, id, enforced }: { c: C; id: string; enforced: nu
         </Card>
       )}
 
+      {!prevPublished && <PriorShifts c={c} id={id} />}
+
       <h2 className="mb-2 text-base font-semibold">Schedules for this interval</h2>
       <Card className="overflow-x-auto">
         <table className="w-full" data-testid="schedules-table">
@@ -399,7 +409,7 @@ async function ScheduleTab({ c, id, enforced }: { c: C; id: string; enforced: nu
                   </td>
                   <td className={td}>{fmtWhen(x.createdAt, tz)}<div className="text-xs text-muted">{x.createdBy?.name ?? ""}{done && rep?.engine?.seconds ? ` · took ${fmtDuration(rep.engine.seconds)}` : ""}</div></td>
                   <td className={td}><Badge tone={st.tone}>{st.text}</Badge>{x.error && <div className="mt-1 max-w-md text-xs text-red-700">{x.error}</div>}</td>
-                  <td className={td}>{done ? <>{x._count.shifts - o} of {x._count.shifts} filled{o > 0 && <Badge tone="red" className="ml-2">{o} open</Badge>}</> : "–"}</td>
+                  <td className={td}>{done ? <>{(clinical.get(x.id) ?? 0) - o} of {clinical.get(x.id) ?? 0} filled{o > 0 && <Badge tone="red" className="ml-2">{o} open</Badge>}</> : "–"}</td>
                   <td className={td}>{!done || v === undefined ? "–" : v === 0 ? <span className="text-emerald-700">No hard rule broken</span> : <Badge tone="red">{v} broken</Badge>}</td>
                   <td className={cn(td, "whitespace-nowrap text-right")}>
                     <span className="inline-flex items-center gap-2">
@@ -416,5 +426,53 @@ async function ScheduleTab({ c, id, enforced }: { c: C; id: string; enforced: nu
         </table>
       </Card>
     </>
+  );
+}
+
+// ───────────────────────────── How the previous interval ended (when it is not published here) ─────────────────────────────
+async function PriorShifts({ c, id }: { c: C; id: string }) {
+  const iv = c.interval, from = addDays(iv.startDate, -7), to = addDays(iv.startDate, -1);
+  const [rows, people, shifts, cats] = await Promise.all([
+    db.priorShift.findMany({ where: { intervalId: id }, include: { participant: true }, orderBy: [{ date: "asc" }, { startMinute: "asc" }] }),
+    db.participant.findMany({ where: { programId: iv.programId, archivedAt: null }, orderBy: [{ lastName: "asc" }, { firstName: "asc" }] }),
+    db.shift.findMany({ where: { programId: iv.programId, archivedAt: null, isBackup: false }, include: { institution: true }, orderBy: [{ institutionId: "asc" }, { startMinute: "asc" }] }),
+    db.shiftCategory.findMany({ where: { programId: iv.programId }, orderBy: { sortOrder: "asc" } }),
+  ]);
+  const sel = "h-9 rounded-md border border-line bg-white px-2 text-sm";
+  return (
+    <Card className="mb-5 p-4" id="prior" data-testid="prior-card">
+      <h2 className="text-base font-semibold">How the previous interval ended</h2>
+      <p className="mt-1 max-w-3xl text-sm text-muted">
+        No schedule for the interval before {iv.name} is published here, so the engine does not know who worked what in the 7 days before {fmtShort(iv.startDate)}.
+        Enter those shifts so rest after a night and the weekly hours limit carry across the boundary. Anything not entered is treated as a day off.
+      </p>
+      {rows.length > 0 && (
+        <table className="mt-3 w-full" data-testid="prior-list"><tbody className="divide-y divide-line">
+          {rows.map((r) => (
+            <tr key={r.id}><td className={td}>{r.participant.lastName}, {r.participant.firstName}</td><td className={td}>{fmtDate(r.date)}</td>
+              <td className={td}>{r.name}</td><td className={td}>{shiftTimes(r.startMinute, r.durationMinutes)}</td>
+              <td className={cn(td, "text-right")}><form action={deletePriorShift.bind(null, id, r.id)}><button className="text-xs text-red-700 hover:underline">Remove</button></form></td></tr>
+          ))}
+        </tbody></table>
+      )}
+      <form action={addPriorShift.bind(null, id)} className="mt-3 flex flex-wrap items-end gap-2" data-testid="prior-add">
+        <label className="text-sm"><span className="mb-1 block font-medium">Who</span><select name="participantId" required className={sel}><option value="">Choose…</option>{people.map((p) => <option key={p.id} value={p.id}>{p.lastName}, {p.firstName}</option>)}</select></label>
+        <label className="text-sm"><span className="mb-1 block font-medium">Date</span><input type="date" name="date" required min={ymd(from)} max={ymd(to)} className={sel} /></label>
+        <label className="text-sm"><span className="mb-1 block font-medium">Shift</span><select name="shiftId" className={sel}><option value="">Other (enter below)</option>{shifts.map((x) => <option key={x.id} value={x.id}>{x.institution.shortCode} · {x.name} · {shiftTimes(x.startMinute, x.durationMinutes)}</option>)}</select></label>
+        <label className="text-sm"><span className="mb-1 block font-medium">or start</span><input type="time" name="start" className={sel} /></label>
+        <label className="text-sm"><span className="mb-1 block font-medium">hours</span><input type="number" name="hours" min={0.5} max={48} step={0.5} className={cn(sel, "w-20")} /></label>
+        <label className="text-sm"><span className="mb-1 block font-medium">category</span><select name="categoryId" className={sel}><option value="">–</option>{cats.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</select></label>
+        <Button size="sm" variant="outline">Add</Button>
+      </form>
+      <details className="mt-3 text-sm">
+        <summary className="cursor-pointer text-brand">Paste from a spreadsheet</summary>
+        <form action={pastePriorShifts.bind(null, id)} className="mt-2 space-y-2">
+          <p className="text-xs text-muted">One shift per line: name, date (YYYY-MM-DD), shift name. Columns copied from a spreadsheet work too. Example: <code>Adams, {ymd(to)}, Night T</code></p>
+          <textarea name="pasted" rows={5} className="w-full rounded-md border border-line p-2 font-mono text-xs" aria-label="Pasted shifts" />
+          <Button size="sm" variant="outline">Add these</Button>
+        </form>
+      </details>
+      {rows.length > 0 && <form action={clearPriorShifts.bind(null, id)} className="mt-3"><button className="text-xs text-red-700 hover:underline">Remove all entered shifts</button></form>}
+    </Card>
   );
 }

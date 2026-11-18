@@ -224,6 +224,12 @@ class Block:
                 diff = [(X(s), 1 if s.pod == a else -1) for s in slots if s.site == site and s.pod in (a, b)]
                 pt = R.pod_tolerance_shifts
                 self._goal("pod balance", self._aux("min", 0, n, [(diff, -pt), (neg(diff), -pt)]))
+        if r.site_share:                             # target split between sites, within the tolerance (x100: percent)
+            tol = 100 * R.site_share_tolerance_shifts
+            for site, pct in sorted(r.site_share.items()):
+                diff = [(X(s), 100 * (s.site == site) - pct) for s in slots]       # 100 x at site - pct x all
+                if any(c for _, c in diff):
+                    self._goal("site split", self._aux("min", 0, 100 * n, [(diff, -tol), (neg(diff), -tol)]))
         for d in range(0, n - 1):                    # isolated single days off
             iso = self._aux("min", 0, 1, [(neg(work(d - 1)) + neg(work(d + 1)) + work(d), -1)])
             self._goal("isolated days off", iso, day=d)

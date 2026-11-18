@@ -62,7 +62,7 @@ model User {
   disabledAt     DateTime? // sign-in switched off by an administrator
 
   accessLinks        AccessLink[]
-  accessLinksCreated AccessLink[] @relation("accessLinkCreator")
+  accessLinksCreated AccessLink[]      @relation("accessLinkCreator")
   memberships        Membership[]
   timeOffCreated     TimeOff[]
   adjustmentsCreated ShiftAdjustment[]
@@ -201,6 +201,8 @@ model Participant {
   academicExceptions AcademicDayException[]
   rules              Rule[]
   scheduledShifts    ScheduledShift[]
+  personalAcademic   AcademicDay[]          @relation("personalAcademic")
+  priorShifts        PriorShift[]
 
   @@unique([programId, email])
   @@index([programId, lastName])
@@ -220,6 +222,7 @@ model ShiftCategory {
   shifts          Shift[]
   specialShifts   SpecialStaffingShift[]
   scheduledShifts ScheduledShift[]
+  priorShifts     PriorShift[]
 
   @@unique([programId, name])
 }
@@ -240,6 +243,9 @@ model Shift {
   maxParticipants     Int       @default(1)
   active              Boolean   @default(true)
   archivedAt          DateTime?
+  isBackup            Boolean   @default(false) // a backup (on-call) shift: someone each day, at home, ready to come in
+  backupRules         Json? // its rules, structured (see lib/backup-rules.ts)
+  backupRulesText     String? // the administrator's own words for those rules
 
   program         Program                @relation(fields: [programId], references: [id])
   institution     Institution            @relation(fields: [institutionId], references: [id])
@@ -293,6 +299,8 @@ model Interval {
   timeOff          TimeOff[]
   shiftAdjustments ShiftAdjustment[]
   schedules        Schedule[]
+  assignments      Assignment[]
+  priorShifts      PriorShift[]
 
   @@unique([programId, name])
   @@index([programId, startDate])
@@ -304,16 +312,19 @@ model Assignment {
   id            String   @id @default(cuid())
   programId     String
   participantId String
+  intervalId    String? // the interval it was made for (assignments made on a participant's page)
   startDate     DateTime @db.Date
   endDate       DateTime @db.Date
-  minShifts     Int // required shift count, as a range; set equal for an exact number
-  maxShifts     Int
-  notes         String?
+  minShifts     Int? // required shift count; empty = the role's default (the usual case)
+  maxShifts     Int?
+  noNights      Boolean  @default(false) // cannot work night shifts this interval (medical, religious, ...)
+  notes         String? // the administrator's record of why, also given to the AI for explanations
 
   program      Program                 @relation(fields: [programId], references: [id])
   participant  Participant             @relation(fields: [participantId], references: [id])
+  interval     Interval?               @relation(fields: [intervalId], references: [id])
   institutions AssignmentInstitution[]
-  shifts       AssignmentShift[] // eligible shift types; none listed = whatever the role allows
+  shifts       AssignmentShift[] // no longer used: eligible shifts follow the role and the institutions
   timeOff      TimeOff[]
 
   @@index([participantId, startDate])
@@ -322,6 +333,9 @@ model Assignment {
 model AssignmentInstitution {
   assignmentId  String
   institutionId String
+  sharePercent  Int? // with two or more institutions: the target share of this person's shifts here (all add up to 100)
+  startDate     DateTime? @db.Date // optional: only works here from / until these dates
+  endDate       DateTime? @db.Date
 
   assignment  Assignment  @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
   institution Institution @relation(fields: [institutionId], references: [id])
@@ -352,6 +366,7 @@ model SpecialStaffingDay {
   date          DateTime    @db.Date
   name          String
   mode          SpecialMode
+  changeText    String? // MODIFY: the administrator's own description of the changes
 
   program     Program                @relation(fields: [programId], references: [id])
   institution Institution            @relation(fields: [institutionId], references: [id])
@@ -410,8 +425,10 @@ model AcademicDay {
   protectAfterMinutes  Int           @default(0)
   active               Boolean       @default(true)
   archivedAt           DateTime?
+  participantId        String? // set = a personal academic day for this one participant (no "who attends")
 
   program     Program                 @relation(fields: [programId], references: [id])
+  participant Participant?            @relation("personalAcademic", fields: [participantId], references: [id])
   roles       AcademicDayRole[] // who attends; none listed = every role
   occurrences AcademicDayOccurrence[]
   exceptions  AcademicDayException[]
@@ -465,6 +482,7 @@ enum TimeOffKind {
   REQUEST_OFF // a preference with a priority; "mandatory" makes it hard
   FIRST_DAY_OFF // preset request: keep the first day of the interval / assignment free
   LAST_DAY_OFF // preset request: keep the last day free
+  REQUIRED_OFF // set by an administrator on a participant's page: never scheduled (whole days, or a time window each day)
 }
 
 enum Priority {
@@ -494,6 +512,8 @@ model TimeOff {
   reason            String?
   status            RequestStatus @default(APPROVED)
   allowanceOverride Boolean       @default(false) // an admin accepted it over the allowance
+  startMinute       Int? // REQUIRED_OFF only: a time window on each day (null = the whole day)
+  endMinute         Int? //   may pass midnight
   createdById       String?
   createdAt         DateTime      @default(now())
 
@@ -649,6 +669,7 @@ model ScheduledShift {
   dutyDate               DateTime @db.Date // the day the shift belongs to
   startsAt               DateTime // local wall-clock time at the institution
   endsAt                 DateTime
+  backup                 Boolean  @default(false) // a backup (on-call) day: not a worked shift, not counted toward shifts or hours
 
   schedule     Schedule              @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
   participant  Participant?          @relation(fields: [participantId], references: [id])
@@ -675,4 +696,25 @@ model AuditLog {
   user    User?   @relation(fields: [userId], references: [id])
 
   @@index([programId, entity, entityId])
+}
+
+// How the previous interval ended, entered by hand when no schedule for it is published here:
+// the shifts each person worked in the last 7 days before the interval. Used for rest and duty-hour rules
+// across the boundary. Ignored once a schedule for the previous interval is published.
+model PriorShift {
+  id              String   @id @default(cuid())
+  intervalId      String
+  participantId   String
+  date            DateTime @db.Date // the calendar date the shift started
+  name            String
+  startMinute     Int
+  durationMinutes Int
+  categoryId      String
+  shiftId         String? // the shift it was picked from, if any
+
+  interval    Interval      @relation(fields: [intervalId], references: [id], onDelete: Cascade)
+  participant Participant   @relation(fields: [participantId], references: [id])
+  category    ShiftCategory @relation(fields: [categoryId], references: [id])
+
+  @@index([intervalId])
 }

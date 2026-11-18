@@ -14,7 +14,7 @@ Your spec gave the stack as an example and asked for the simplest conventional o
 | Tailwind CSS 4 | |
 | shadcn-style components | `src/components/ui/*` are hand-written in the shadcn pattern (cva + tailwind-merge). The shadcn CLI could not be used here because its registry was outside the allowed network; `npx shadcn add ...` can replace them later without touching the screens |
 | Sign-in | Built in (15 Nov 2026): email and password, by invitation only. No outside sign-in service. Details under "Sign-in and access" |
-| Plain-English rules | Behind the `RuleInterpreter` interface in `src/lib/rule-interpreter.ts`, with a keyword-based mock (`RULE_PARSER=mock`). No language model is called yet |
+| Plain-English input | Claude (Anthropic API) when `ANTHROPIC_API_KEY` is set; otherwise a built-in keyword reader. Details under "Claude in the app" |
 
 ## Run it
 
@@ -44,8 +44,8 @@ The app starts the scheduling engine itself, so the engine has to be on the same
 Left navigation, grouped as in the spec:
 
 * **Setup**: Institutions (with areas), Roles (with shift eligibility), Participants, Shifts (with the role grid), Shift categories
-* **Schedule**: Intervals, Assignments, Special Staffing Days (with their lines)
-* **Time Off & Preferences**: Academic Days (with weekly changes and personal exceptions), Vacation, Requests Off, Adjustments
+* **Schedule**: Intervals, Assignments (one page per participant and interval), Special Staffing Days
+* **Time Off & Preferences**: Academic Days (with weekly changes, dates it does not happen and personal exceptions), Vacation, Requests Off
 * **Rules**: Rules (one list, hard and soft), Other Restrictions (plain English)
 * Program settings
 
@@ -76,6 +76,56 @@ archived instead of deleted and can be restored.
   empty one. It asks for the program's name typed out.
 * **Your account** (every signed-in person): change password, sign out everywhere.
 * Invitations, resets, access changes, password changes and start-over are written to the audit log.
+
+**Assignments** (reorganised 17 Nov 2026). The tab lists participants, with search, a role filter, sorting by
+last or first name, and which of the latest intervals each person is assigned to. A participant's page has an
+interval picker; below it, for that interval:
+
+* **Summary.** Shift counts and eligible shifts come from the role (counts set on old assignments were cleared when
+  this version was installed). Adjustments are added to the role's numbers. Assignments cover the whole interval.
+* **Institutions.** With more than one, the share of shifts at each is required and must add up to 100%; the
+  schedule aims for it and counts it as met within one shift either way (a soft goal, third in priority). Optional
+  "only from / only until" dates per institution (for example two weeks at each); without dates, either one at any time.
+* **Adjustments** (moved here from Time Off & Preferences): extra shifts or a reduction, reason optional.
+* **Required time off**: dates, or a time window on those dates, always enforced. For last-minute changes.
+* **No nights** (always enforced) and **notes** for the record. Notes are shown with the compiled rules.
+* **Personal academic days**: like the program's academic days, for this person only, with dates it does not happen
+  and the yes/no "If a shift overlaps this session, the individual cannot work it".
+
+**Academic days** now have "Dates it does not happen" (holidays and so on), and the overlap question is the same
+yes/no: yes means a shift that overlaps cannot be worked (a hard rule).
+
+**Backup shifts.** A shift can be marked "This is a backup shift". One person is then on backup every day it is
+active, at its own time and length. It is on call only by default: it does not count as a shift or toward hours
+(a tick changes that). Its rules are typed in plain words ("PGY-2 and up only, at most 3 each, 3 days apart") and
+read into editable fields: most per person, days between, hours off before and after, and which roles can take it
+(saving updates the role grid). Nobody is put on backup on a day they work a clinical shift, on vacation or required
+time off, or in their weekly 24 hours off. Backup is chosen after the clinical schedule is final, by an exact
+optimisation that spreads it evenly; a day nobody can take is shown open, with the reasons. Review shows backup
+days as BU, a "Backup days covered" tile and a Backup section; the spreadsheet and calendar mark them on call.
+
+**Special staffing days** now have their own form. **Modify**: describe the changes in words, "Read the changes"
+turns them into lines you can edit (a shift that does not run, a changed time or headcount, an extra shift), then
+save. **Replace**: tick the shifts that run that day, inactive ones included, with an optional time, length or
+headcount for that day only.
+
+**How the previous interval ended.** When nothing is published for the interval before, the Schedule tab asks for the
+shifts worked in the 7 days before it: one at a time, or pasted ("name, date, shift name", commas or tabs). The
+engine uses them for rest after nights and the weekly hours limit across the boundary. Shifts of people not in the
+interval are ignored, with a warning.
+
+**Optimize.** A finished schedule that breaks no hard rule can be optimized for 1, 5 or 15 minutes. The engine starts
+from that schedule and keeps working on the soft goals; no goal gets worse unless a goal above it improves. The result
+is a new draft ("Run 3 (optimized from Run 2)"); the original is unchanged. Backup is chosen again for the new
+schedule, so its backup days can differ. A schedule whose inputs have changed since cannot be optimized.
+
+**Claude in the app.** With `ANTHROPIC_API_KEY` set, three things are read by Claude: Other Restrictions, backup rules
+and special-day changes. What is sent: the sentence typed, and the names and ids of the program's roles, shifts,
+categories and institutions needed to understand it; for Other Restrictions only, also participants' names and ids
+(so "Adams cannot work nights" can name a person). No schedules, time off, notes or email addresses are sent. Claude's answer is always a
+proposal the admin checks and edits before saving. If the key is missing, wrong or the service fails, the built-in
+keyword reader is used and the screen says which one read the text. `ANTHROPIC_MODEL` picks the model
+(default `claude-sonnet-5-5`).
 
 **Interval hub** (`/intervals/<id>`): Coverage (shifts x days with headcount, special staffing days and
 academic time applied), Requests & vacations per participant with allowance used, Adjustments with the
@@ -124,7 +174,12 @@ plus the academic time they attend. Google, Apple and Outlook can subscribe to i
 | `src/lib/crud.ts`, `src/lib/entities.tsx` | Each simple screen is described once (fields, columns, validation); the list, form and save/delete are generic |
 | `src/components/entity-pages.tsx`, `entity-form.tsx`, `children.tsx` | The generic list and form, and the child tables edited on a parent's page |
 | `src/app/(admin)/intervals/[id]/page.tsx` | The interval hub |
-| `src/lib/compile.ts` | Database -> engine input + the uniform compiled-rules list (same output as `datamodel/compile_interval.py`) |
+| `src/lib/compile.ts` | Database -> engine input + the uniform compiled-rules list. (`datamodel/compile_interval.py` is an older Python version kept for the data-model test; it does not know backup, site split or personal academic days) |
+| `src/app/(admin)/assignments/`, `src/app/assignment-actions.ts`, `src/components/institutions-form.tsx` | The participant list and the per-participant, per-interval page |
+| `src/lib/ai.ts`, `src/lib/assist.ts`, `src/lib/rule-interpreter.ts` | The Anthropic API call (forced tool use), and the three readers: rules, backup rules, special-day changes; each falls back to the keyword reader |
+| `src/lib/backup-rules.ts`, `src/components/backup-rules-*.tsx`, `src/app/backup-actions.ts` | Backup shift rules |
+| `src/components/special-day-form.tsx`, `src/app/special-day-actions.ts` | Special staffing days |
+| `src/app/prior-actions.ts` | Shifts entered for the previous interval |
 | `src/lib/auth.ts` | Who is signed in: the signed session cookie and the checks every page and action starts with |
 | `src/lib/accounts.ts`, `passwords.ts` | Sign-in, the guessing limit, one-time links, who may change whom, password storage |
 | `src/lib/program-setup.ts` | First-time setup, what an empty program starts with, the demo program, start over |
@@ -139,7 +194,7 @@ plus the academic time they attend. Google, Apple and Outlook can subscribe to i
 | `src/lib/rule-interpreter.ts`, `src/components/assist-panel.tsx` | Plain English -> proposed rule |
 | `src/lib/domain.ts` | Academic sessions, allowance counting, conflict notes |
 | `src/lib/calendar.ts` | The .ics feed |
-| `prisma/migrations/` | `0001_init` (tables), `0002_constraints` (no overlapping assignments or intervals, one published schedule per interval, ...) and `0003_schedule_runs` (engine runs: one at a time per interval, only a finished schedule can be published) and `0004_accounts` (passwords, one-time links, sign-in limits) |
+| `prisma/migrations/` | `0001_init` (tables), `0002_constraints` (no overlapping assignments or intervals, one published schedule per interval, ...) and `0003_schedule_runs` (engine runs: one at a time per interval, only a finished schedule can be published) and `0004_accounts` (passwords, one-time links, sign-in limits) and `0005_assignments_backup` (assignments per interval, site shares and date windows, required time off, personal academic days, backup shifts, previous-interval shifts; clears old per-assignment counts) |
 
 ## Tests
 
@@ -147,14 +202,15 @@ Everything signs in through the real sign-in form.
 
     npm run db:reset && npm run build && npm start         # then, in another shell:
     node e2e/smoke.cjs            # every list, edit and new page loads without browser errors
-    node e2e/flows.cjs            # 55 checks in a real browser (Playwright): the input screens
+    node e2e/flows.cjs            # 51 checks in a real browser (Playwright): the input screens
     npm run db:reset && node e2e/schedule.cjs          # 50 checks: generate -> review -> publish, with the real engine (about 3 minutes)
-    npm run db:reset && npx tsx tests/engine-check.ts  # 40 checks on the engine runner, no browser needed
+    npm run db:reset && node e2e/assignments.cjs       # 56 checks: assignments, academic exceptions, special days, backup, previous interval, optimize (about 3 minutes)
+    npm run db:reset && npx tsx tests/engine-check.ts  # 46 checks on the engine runner, including optimize, no browser needed
+    npx tsx tests/ai-check.ts                          # 15 checks on the Claude readers against a stand-in API server (and the fallback)
     npm run db:reset && npx tsx tests/accounts-check.ts  # 61 checks on sign-in, links, limits, setup and start over, no browser needed
     npm run db:reset && python tests/verify_stored.py  # the stored schedule passes the independent rule check
-    python tests/compare_compile.py     # app and Python bridge compile identical engine input; engine schedules from it
 
-    # a new hosted site, from first visit to start over (71 checks, about 2 minutes). Needs an EMPTY database:
+    # a new hosted site, from first visit to start over (61 checks, about 2 minutes). Needs an EMPTY database:
     npm run db:reset -- --empty && SETUP_KEY=a-long-setup-key-123 npm start
     SETUP_KEY=a-long-setup-key-123 node e2e/accounts.cjs
 
@@ -189,9 +245,16 @@ missing, the engine stopping with an error (reason shown, its output kept, nothi
 died, a second published schedule refused by the database, and the next interval inheriting exactly the published
 schedule's last week (same people, same start and end times).
 
+`assignments.cjs` covers: the participant list (role filter, sorting, search); assign and remove; split percentages
+that do not add to 100% and dates outside the interval refused; adjustments; required time off with a time window;
+no nights and notes; personal academic days; each of these in the compiled rules; a date an academic day does not
+happen; Replace listing inactive shifts and refusing an empty day; Modify read into lines and saved; backup rules
+read from words, saved and reflected in the role grid; previous-interval shifts entered and pasted, a bad paste
+refused whole; backup days on the review page; and Optimize producing a new draft.
+
 `verify_stored.py` reads a generated schedule back out of the database and runs the engine's independent checker on
 those rows alone: no hard rule broken, every goal score in the report reproduced, every stored time equal to the
-shift it stands for. It starts the run in one process and collects it from another, which is what a web server
+shift it stands for; and the stored backup days pass the separate backup checker. It starts the run in one process and collects it from another, which is what a web server
 restart looks like to the engine. It passes with both engines (`ENGINE_BACKEND=highs` and `cpsat`).
 
 ## What has and has not been checked
@@ -218,7 +281,9 @@ Not checked:
 * **The engine and the web app must be on the same machine, and there must be exactly one server.** If the
   server is replaced while the engine is running (a deploy or restart), the run is lost and the site says so.
 * No security review, audit or penetration test has been done.
-* No language model has been called; only the mock interpreter is wired.
+* **Claude itself has not been called from here**: the Anthropic API was not reachable. The calls were tested against a
+  stand-in server that answers the way the API documents (`tests/ai-check.ts`), and every screen was tested with the
+  keyword reader. The first real test is on your site once the key is added.
 * The calendar feed has been checked for format and content, not subscribed to from Google or Apple.
 
 ## Not built yet
@@ -230,4 +295,8 @@ Not checked:
 * A screen for reading the audit log; replacing a calendar link that has been shared by mistake; exporting or
   deleting one person's data.
 * The rules marked "stored only" are still not enforced by the engine; the review page says so.
+* An AI-written explanation of a schedule (why something was or was not possible, using the admin's notes). The notes are
+  stored and shown with the compiled rules, ready for it.
+* Backup and the clinical schedule are decided one after the other, not together, so a clinical schedule is never
+  changed to make backup easier.
 * Bulk tools (import participants, copy an interval's setup, yearly role promotion).

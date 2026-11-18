@@ -7,6 +7,7 @@ export type AcademicSession = {
   academicDayId: string; name: string; date: Date; startMinute: number; durationMinutes: number;
   policy: "BLOCKED" | "EXCUSED"; protectBefore: number; protectAfter: number;
   roleIds: string[]; excused: string[]; also: string[];
+  participantId: string | null; // a personal academic day: only this participant attends
 };
 
 /** A recurring academic day expanded to dated sessions, with one-week changes and cancellations applied. */
@@ -28,7 +29,7 @@ export async function academicSessions(programId: string, from: Date, to: Date):
         academicDayId: a.id, name: a.name, date: d,
         startMinute: o?.startMinute ?? a.startMinute, durationMinutes: o?.durationMinutes ?? a.durationMinutes,
         policy: o?.overlapPolicy ?? a.overlapPolicy, protectBefore: a.protectBeforeMinutes, protectAfter: a.protectAfterMinutes,
-        roleIds: a.roles.map((r) => r.roleId),
+        roleIds: a.roles.map((r) => r.roleId), participantId: a.participantId,
         excused: a.exceptions.filter((e) => e.type === "EXCUSED" && covers(e)).map((e) => e.participantId),
         also: a.exceptions.filter((e) => e.type === "REQUIRED" && covers(e)).map((e) => e.participantId),
       });
@@ -38,7 +39,8 @@ export async function academicSessions(programId: string, from: Date, to: Date):
 }
 
 export const attends = (s: AcademicSession, p: { id: string; roleId: string }) =>
-  !s.excused.includes(p.id) && (s.roleIds.length === 0 || s.roleIds.includes(p.roleId) || s.also.includes(p.id));
+  s.participantId ? s.participantId === p.id
+    : !s.excused.includes(p.id) && (s.roleIds.length === 0 || s.roleIds.includes(p.roleId) || s.also.includes(p.id));
 
 export const sessionLabel = (s: AcademicSession) =>
   `${s.name} ${fmtShort(s.date)} ${hhmm(s.startMinute)}–${hhmm(s.startMinute + s.durationMinutes)}`;

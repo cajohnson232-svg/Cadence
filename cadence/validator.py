@@ -180,6 +180,9 @@ def soft_resident(P: Problem, r: Resident, shifts, share):
         if True:
             M["pod balance"] += max(0, abs(sum(s.site == site and s.pod == a for s in cur)
                                            - sum(s.site == site and s.pod == b for s in cur)) - R.pod_tolerance_shifts)
+    tol = 100 * R.site_share_tolerance_shifts      # site split, in hundredths of a shift
+    M["site split"] = sum(max(0, abs(100 * sum(s.site == site for s in cur) - pct * len(cur)) - tol)
+                          for site, pct in r.site_share.items())
     M["isolated days off"] = sum(1 for d in range(0, P.n_days - 1)
                                  if d not in byday and d - 1 in byday and d + 1 in byday)
     k = R.soft_max_nights_in_run + 1

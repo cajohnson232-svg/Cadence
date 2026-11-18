@@ -7,7 +7,7 @@ import { cn } from "@/lib/util";
 const GROUPS: { title: string; items: [string, string][] }[] = [
   { title: "Setup", items: [["/institutions", "Institutions"], ["/roles", "Roles"], ["/participants", "Participants"], ["/shifts", "Shifts"], ["/categories", "Shift categories"]] },
   { title: "Schedule", items: [["/intervals", "Intervals"], ["/assignments", "Assignments"], ["/special-days", "Special Staffing Days"]] },
-  { title: "Time Off & Preferences", items: [["/academic-days", "Academic Days"], ["/vacation", "Vacation"], ["/requests", "Requests Off"], ["/adjustments", "Adjustments"]] },
+  { title: "Time Off & Preferences", items: [["/academic-days", "Academic Days"], ["/vacation", "Vacation"], ["/requests", "Requests Off"]] },
   { title: "Rules", items: [["/rules", "Rules"], ["/rules/assist", "Other Restrictions"]] },
 ];
 

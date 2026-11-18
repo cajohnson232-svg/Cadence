@@ -56,7 +56,8 @@ export function fingerprint(config: unknown): string {
 
 export type StartResult = { ok: true; scheduleId: string } | { ok: false; error: string };
 
-export async function startRun(intervalId: string, userId: string | null, budget: Budget | { seconds: number; polish: number }): Promise<StartResult> {
+export async function startRun(intervalId: string, userId: string | null, budget: Budget | { seconds: number; polish: number },
+  from?: { scheduleId: string; label: string }): Promise<StartResult> {
   const b = typeof budget === "string" ? BUDGETS[budget] ?? BUDGETS.standard : budget;
   const dirE = engineDir();
   if (!existsSync(join(dirE, "run.py")))
@@ -73,7 +74,7 @@ export async function startRun(intervalId: string, userId: string | null, budget
   let sch;
   try {
     sch = await db.schedule.create({
-      data: { intervalId, source: "SOLVER", status: "DRAFT", runStatus: "QUEUED", label: `Run ${n + 1}`, createdById: userId,
+      data: { intervalId, source: "SOLVER", status: "DRAFT", runStatus: "QUEUED", label: from ? `Run ${n + 1} (optimized from ${from.label})` : `Run ${n + 1}`, createdById: userId,
         inputSnapshot: cfg, inputHash: fingerprint(cfg), timeBudget: b.seconds + b.polish },
     });
   } catch (e) {
@@ -85,10 +86,18 @@ export async function startRun(intervalId: string, userId: string | null, budget
   try {
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, "config.json"), JSON.stringify(cfg));
+    const extra: string[] = [];
+    if (from) {          // the schedule to start from: each person's clinical shifts, as day + name + clock times
+      const start0 = (await db.interval.findUniqueOrThrow({ where: { id: intervalId } })).startDate.getTime();
+      const rows = await db.scheduledShift.findMany({ where: { scheduleId: from.scheduleId, participantId: { not: null }, backup: false } });
+      const min = (d: Date) => Math.round((d.getTime() - start0) / 60000);
+      writeFileSync(join(dir, "initial.json"), JSON.stringify(rows.map((r) => ({ resident: r.participantId, day: Math.round((r.dutyDate.getTime() - start0) / 86400000), name: r.name, start: min(r.startsAt), end: min(r.endsAt) }))));
+      extra.push("--initial", join(dir, "initial.json"));
+    }
     const log = openSync(join(dir, "engine.log"), "a");
     const child = spawn(/*turbopackIgnore: true*/ python(), ["-u", "run.py", join(dir, "config.json"), "--out", dir, "--result", join(dir, "result.json"),
       "--progress", join(dir, "progress.json"), "--seconds", String(b.seconds), "--polish-seconds", String(b.polish),
-      "--backend", process.env.ENGINE_BACKEND || "auto"], { cwd: dirE, detached: true, stdio: ["ignore", log, log] });
+      "--backend", process.env.ENGINE_BACKEND || "auto", ...extra], { cwd: dirE, detached: true, stdio: ["ignore", log, log] });
     await new Promise<void>((ok, bad) => { child.once("spawn", () => ok()); child.once("error", bad); });
     closeSync(log);
     child.once("exit", () => { settleRun(sch.id).catch(() => {}); });
@@ -201,6 +210,14 @@ async function importResult(sch: Any, result: Any): Promise<string> {
         specialStaffingShiftId: s.special_ref && specialIds.has(s.special_ref) ? s.special_ref : null, name: s.name,
         dutyDate: addDays(start, s.day), startsAt: at(s.start), endsAt: at(s.end) });
   }
+  for (const e of (result.backup?.days ?? []) as Any[]) {     // backup (on-call) days: rows marked backup, open ones without a person
+    const institutionId = inst.get(e.site), categoryId = cat.get(e.category);
+    if (!institutionId || !categoryId) { problems.add(`backup shift "${e.name}"`); continue; }
+    const names: (string | null)[] = [...e.assigned, ...Array(Math.max(0, e.need - e.assigned.length)).fill(null)];
+    for (const participantId of names)
+      rows.push({ scheduleId: sch.id, participantId, institutionId, categoryId, shiftId: shiftIds.has(e.ref) ? e.ref : null, specialStaffingShiftId: null,
+        name: e.name, dutyDate: addDays(start, e.day), startsAt: at(e.start), endsAt: at(e.end), backup: true });
+  }
   if (problems.size) {
     await fail(sch.id, sch.workDir, `The program's setup changed while the engine was running (${[...problems].slice(0, 3).join(", ")} no longer exists). Generate again.`);
     return "FAILED";
@@ -234,7 +251,7 @@ const GOAL: Record<string, string> = {
   "isolated days off": "keeping days off together", "extra / over-long night runs": "runs of nights", "requests off missed": "requests off",
 };
 const PHASE: Record<string, string> = {
-  reading: "Reading the inputs", "capacity check": "Checking there are enough people for the shifts", "first schedule": "Building a first schedule",
+  reading: "Reading the inputs", backup: "Choosing who is on backup", "capacity check": "Checking there are enough people for the shifts", "first schedule": "Building a first schedule",
   swaps: "Improving it with swaps", "rule check": "Checking every rule independently", done: "Saving the schedule",
 };
 

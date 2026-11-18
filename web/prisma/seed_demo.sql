@@ -104,58 +104,56 @@ INSERT INTO "Membership" ("id", "programId", "userId", "access", "participantId"
 INSERT INTO "Membership" ("id", "programId", "userId", "access", "participantId") VALUES ('m3', 'prog_demo', 'u_res', 'RESIDENT', 'p01');
 INSERT INTO "Interval" ("id", "programId", "name", "startDate", "endDate", "status") VALUES ('iv_6', 'prog_demo', 'Block 6', '2026-12-07', '2027-01-03', 'PUBLISHED');
 INSERT INTO "Interval" ("id", "programId", "name", "startDate", "endDate", "status", "requestDeadline", "requestAllowance", "highPriorityAllowance") VALUES ('iv_7', 'prog_demo', 'Block 7', '2027-01-04', '2027-01-31', 'DRAFT', '2026-12-15 23:59:00', 4, 1);
-INSERT INTO "Assignment" ("id", "programId", "participantId", "startDate", "endDate", "minShifts", "maxShifts") VALUES ('as_p01', 'prog_demo', 'p01', '2027-01-04', '2027-01-31', 16, 18);
-INSERT INTO "AssignmentInstitution" ("assignmentId", "institutionId") VALUES ('as_p01', 'inst_mhh');
-INSERT INTO "AssignmentInstitution" ("assignmentId", "institutionId") VALUES ('as_p01', 'inst_lbj');
-INSERT INTO "Assignment" ("id", "programId", "participantId", "startDate", "endDate", "minShifts", "maxShifts") VALUES ('as_p02', 'prog_demo', 'p02', '2027-01-04', '2027-01-31', 16, 18);
+INSERT INTO "Assignment" ("id", "programId", "participantId", "intervalId", "startDate", "endDate") VALUES ('as_p01', 'prog_demo', 'p01', 'iv_7', '2027-01-04', '2027-01-31');
+INSERT INTO "AssignmentInstitution" ("assignmentId", "institutionId", "sharePercent") VALUES ('as_p01', 'inst_mhh', 60);
+INSERT INTO "AssignmentInstitution" ("assignmentId", "institutionId", "sharePercent") VALUES ('as_p01', 'inst_lbj', 40);
+UPDATE "Assignment" SET "notes" = 'Mostly MHH this block to finish the trauma requirement.' WHERE id = 'as_p01';
+INSERT INTO "Assignment" ("id", "programId", "participantId", "intervalId", "startDate", "endDate") VALUES ('as_p02', 'prog_demo', 'p02', 'iv_7', '2027-01-04', '2027-01-31');
 INSERT INTO "AssignmentInstitution" ("assignmentId", "institutionId") VALUES ('as_p02', 'inst_mhh');
 INSERT INTO "AssignmentInstitution" ("assignmentId", "institutionId") VALUES ('as_p02', 'inst_lbj');
-INSERT INTO "Assignment" ("id", "programId", "participantId", "startDate", "endDate", "minShifts", "maxShifts") VALUES ('as_p03', 'prog_demo', 'p03', '2027-01-04', '2027-01-31', 16, 18);
+INSERT INTO "Assignment" ("id", "programId", "participantId", "intervalId", "startDate", "endDate") VALUES ('as_p03', 'prog_demo', 'p03', 'iv_7', '2027-01-04', '2027-01-31');
 INSERT INTO "AssignmentInstitution" ("assignmentId", "institutionId") VALUES ('as_p03', 'inst_mhh');
 INSERT INTO "AssignmentInstitution" ("assignmentId", "institutionId") VALUES ('as_p03', 'inst_lbj');
-INSERT INTO "Assignment" ("id", "programId", "participantId", "startDate", "endDate", "minShifts", "maxShifts") VALUES ('as_p04', 'prog_demo', 'p04', '2027-01-04', '2027-01-31', 16, 18);
+INSERT INTO "Assignment" ("id", "programId", "participantId", "intervalId", "startDate", "endDate") VALUES ('as_p04', 'prog_demo', 'p04', 'iv_7', '2027-01-04', '2027-01-31');
 INSERT INTO "AssignmentInstitution" ("assignmentId", "institutionId") VALUES ('as_p04', 'inst_mhh');
-INSERT INTO "Assignment" ("id", "programId", "participantId", "startDate", "endDate", "minShifts", "maxShifts") VALUES ('as_p05', 'prog_demo', 'p05', '2027-01-04', '2027-01-31', 16, 18);
+INSERT INTO "Assignment" ("id", "programId", "participantId", "intervalId", "startDate", "endDate") VALUES ('as_p05', 'prog_demo', 'p05', 'iv_7', '2027-01-04', '2027-01-31');
 INSERT INTO "AssignmentInstitution" ("assignmentId", "institutionId") VALUES ('as_p05', 'inst_lbj');
-INSERT INTO "Assignment" ("id", "programId", "participantId", "startDate", "endDate", "minShifts", "maxShifts") VALUES ('as_p06', 'prog_demo', 'p06', '2027-01-04', '2027-01-31', 16, 18);
+INSERT INTO "Assignment" ("id", "programId", "participantId", "intervalId", "startDate", "endDate") VALUES ('as_p06', 'prog_demo', 'p06', 'iv_7', '2027-01-04', '2027-01-31');
 INSERT INTO "AssignmentInstitution" ("assignmentId", "institutionId") VALUES ('as_p06', 'inst_mhh');
 INSERT INTO "AssignmentInstitution" ("assignmentId", "institutionId") VALUES ('as_p06', 'inst_lbj');
-INSERT INTO "Assignment" ("id", "programId", "participantId", "startDate", "endDate", "minShifts", "maxShifts") VALUES ('as_p07', 'prog_demo', 'p07', '2027-01-04', '2027-01-31', 15, 17);
+INSERT INTO "Assignment" ("id", "programId", "participantId", "intervalId", "startDate", "endDate") VALUES ('as_p07', 'prog_demo', 'p07', 'iv_7', '2027-01-04', '2027-01-31');
 INSERT INTO "AssignmentInstitution" ("assignmentId", "institutionId") VALUES ('as_p07', 'inst_mhh');
 INSERT INTO "AssignmentInstitution" ("assignmentId", "institutionId") VALUES ('as_p07', 'inst_lbj');
-INSERT INTO "Assignment" ("id", "programId", "participantId", "startDate", "endDate", "minShifts", "maxShifts") VALUES ('as_p08', 'prog_demo', 'p08', '2027-01-04', '2027-01-31', 15, 17);
+INSERT INTO "Assignment" ("id", "programId", "participantId", "intervalId", "startDate", "endDate") VALUES ('as_p08', 'prog_demo', 'p08', 'iv_7', '2027-01-04', '2027-01-31');
 INSERT INTO "AssignmentInstitution" ("assignmentId", "institutionId") VALUES ('as_p08', 'inst_mhh');
 INSERT INTO "AssignmentInstitution" ("assignmentId", "institutionId") VALUES ('as_p08', 'inst_lbj');
-INSERT INTO "Assignment" ("id", "programId", "participantId", "startDate", "endDate", "minShifts", "maxShifts") VALUES ('as_p09', 'prog_demo', 'p09', '2027-01-04', '2027-01-31', 15, 17);
+INSERT INTO "Assignment" ("id", "programId", "participantId", "intervalId", "startDate", "endDate") VALUES ('as_p09', 'prog_demo', 'p09', 'iv_7', '2027-01-04', '2027-01-31');
 INSERT INTO "AssignmentInstitution" ("assignmentId", "institutionId") VALUES ('as_p09', 'inst_mhh');
-INSERT INTO "Assignment" ("id", "programId", "participantId", "startDate", "endDate", "minShifts", "maxShifts") VALUES ('as_p10', 'prog_demo', 'p10', '2027-01-04', '2027-01-31', 15, 17);
+INSERT INTO "Assignment" ("id", "programId", "participantId", "intervalId", "startDate", "endDate") VALUES ('as_p10', 'prog_demo', 'p10', 'iv_7', '2027-01-04', '2027-01-31');
 INSERT INTO "AssignmentInstitution" ("assignmentId", "institutionId") VALUES ('as_p10', 'inst_lbj');
-INSERT INTO "Assignment" ("id", "programId", "participantId", "startDate", "endDate", "minShifts", "maxShifts") VALUES ('as_p11', 'prog_demo', 'p11', '2027-01-04', '2027-01-31', 15, 17);
+INSERT INTO "Assignment" ("id", "programId", "participantId", "intervalId", "startDate", "endDate") VALUES ('as_p11', 'prog_demo', 'p11', 'iv_7', '2027-01-04', '2027-01-31');
 INSERT INTO "AssignmentInstitution" ("assignmentId", "institutionId") VALUES ('as_p11', 'inst_mhh');
 INSERT INTO "AssignmentInstitution" ("assignmentId", "institutionId") VALUES ('as_p11', 'inst_lbj');
-INSERT INTO "Assignment" ("id", "programId", "participantId", "startDate", "endDate", "minShifts", "maxShifts") VALUES ('as_p12', 'prog_demo', 'p12', '2027-01-04', '2027-01-31', 15, 17);
+INSERT INTO "Assignment" ("id", "programId", "participantId", "intervalId", "startDate", "endDate") VALUES ('as_p12', 'prog_demo', 'p12', 'iv_7', '2027-01-04', '2027-01-31');
 INSERT INTO "AssignmentInstitution" ("assignmentId", "institutionId") VALUES ('as_p12', 'inst_mhh');
 INSERT INTO "AssignmentInstitution" ("assignmentId", "institutionId") VALUES ('as_p12', 'inst_lbj');
-INSERT INTO "Assignment" ("id", "programId", "participantId", "startDate", "endDate", "minShifts", "maxShifts") VALUES ('as_p13', 'prog_demo', 'p13', '2027-01-04', '2027-01-31', 14, 16);
+INSERT INTO "Assignment" ("id", "programId", "participantId", "intervalId", "startDate", "endDate") VALUES ('as_p13', 'prog_demo', 'p13', 'iv_7', '2027-01-04', '2027-01-31');
 INSERT INTO "AssignmentInstitution" ("assignmentId", "institutionId") VALUES ('as_p13', 'inst_mhh');
 INSERT INTO "AssignmentInstitution" ("assignmentId", "institutionId") VALUES ('as_p13', 'inst_lbj');
-INSERT INTO "Assignment" ("id", "programId", "participantId", "startDate", "endDate", "minShifts", "maxShifts") VALUES ('as_p14', 'prog_demo', 'p14', '2027-01-04', '2027-01-31', 14, 16);
+INSERT INTO "Assignment" ("id", "programId", "participantId", "intervalId", "startDate", "endDate") VALUES ('as_p14', 'prog_demo', 'p14', 'iv_7', '2027-01-04', '2027-01-31');
 INSERT INTO "AssignmentInstitution" ("assignmentId", "institutionId") VALUES ('as_p14', 'inst_mhh');
 INSERT INTO "AssignmentInstitution" ("assignmentId", "institutionId") VALUES ('as_p14', 'inst_lbj');
-INSERT INTO "Assignment" ("id", "programId", "participantId", "startDate", "endDate", "minShifts", "maxShifts") VALUES ('as_p15', 'prog_demo', 'p15', '2027-01-04', '2027-01-31', 14, 16);
+INSERT INTO "Assignment" ("id", "programId", "participantId", "intervalId", "startDate", "endDate") VALUES ('as_p15', 'prog_demo', 'p15', 'iv_7', '2027-01-04', '2027-01-31');
 INSERT INTO "AssignmentInstitution" ("assignmentId", "institutionId") VALUES ('as_p15', 'inst_mhh');
 INSERT INTO "AssignmentInstitution" ("assignmentId", "institutionId") VALUES ('as_p15', 'inst_lbj');
-INSERT INTO "Assignment" ("id", "programId", "participantId", "startDate", "endDate", "minShifts", "maxShifts") VALUES ('as_p16', 'prog_demo', 'p16', '2027-01-04', '2027-01-31', 14, 16);
+INSERT INTO "Assignment" ("id", "programId", "participantId", "intervalId", "startDate", "endDate") VALUES ('as_p16', 'prog_demo', 'p16', 'iv_7', '2027-01-04', '2027-01-31');
 INSERT INTO "AssignmentInstitution" ("assignmentId", "institutionId") VALUES ('as_p16', 'inst_mhh');
 INSERT INTO "AssignmentInstitution" ("assignmentId", "institutionId") VALUES ('as_p16', 'inst_lbj');
-INSERT INTO "Assignment" ("id", "programId", "participantId", "startDate", "endDate", "minShifts", "maxShifts") VALUES ('as_p17', 'prog_demo', 'p17', '2027-01-04', '2027-01-31', 14, 16);
+INSERT INTO "Assignment" ("id", "programId", "participantId", "intervalId", "startDate", "endDate") VALUES ('as_p17', 'prog_demo', 'p17', 'iv_7', '2027-01-04', '2027-01-31');
 INSERT INTO "AssignmentInstitution" ("assignmentId", "institutionId") VALUES ('as_p17', 'inst_mhh');
-INSERT INTO "Assignment" ("id", "programId", "participantId", "startDate", "endDate", "minShifts", "maxShifts") VALUES ('as_p18', 'prog_demo', 'p18', '2027-01-04', '2027-01-17', 7, 8);
-INSERT INTO "AssignmentInstitution" ("assignmentId", "institutionId") VALUES ('as_p18', 'inst_mhh');
-INSERT INTO "AssignmentShift" ("assignmentId", "shiftId") VALUES ('as_p18', 's_dm');
-INSERT INTO "AssignmentShift" ("assignmentId", "shiftId") VALUES ('as_p18', 's_dmw');
-INSERT INTO "AssignmentShift" ("assignmentId", "shiftId") VALUES ('as_p18', 's_em');
-INSERT INTO "AssignmentShift" ("assignmentId", "shiftId") VALUES ('as_p18', 's_ft');
+INSERT INTO "Assignment" ("id", "programId", "participantId", "intervalId", "startDate", "endDate") VALUES ('as_p18', 'prog_demo', 'p18', 'iv_7', '2027-01-04', '2027-01-31');
+INSERT INTO "AssignmentInstitution" ("assignmentId", "institutionId", "startDate", "endDate") VALUES ('as_p18', 'inst_mhh', '2027-01-04', '2027-01-17');
+UPDATE "Assignment" SET "noNights" = true, "notes" = 'Off-service rotator, here for the first two weeks only. No nights on this rotation (agreed with their home program).' WHERE id = 'as_p18';
 INSERT INTO "SpecialStaffingDay" ("id", "programId", "institutionId", "date", "name", "mode") VALUES ('sp_mlk', 'prog_demo', 'inst_mhh', '2027-01-18', 'MLK Day', 'REPLACE');
 INSERT INTO "SpecialStaffingShift" ("id", "specialStaffingDayId", "action", "shiftId", "name", "startMinute", "durationMinutes") VALUES ('sps_mlk0', 'sp_mlk', 'ADD', 's_dt', 'Holiday Day T', 420, 720);
 INSERT INTO "SpecialStaffingShift" ("id", "specialStaffingDayId", "action", "shiftId", "name", "startMinute", "durationMinutes") VALUES ('sps_mlk1', 'sp_mlk', 'ADD', 's_dm', 'Holiday Day M', 420, 720);
@@ -218,3 +216,14 @@ INSERT INTO "ScheduledShift" ("id", "scheduleId", "participantId", "institutionI
 INSERT INTO "ScheduledShift" ("id", "scheduleId", "participantId", "institutionId", "categoryId", "shiftId", "name", "dutyDate", "startsAt", "endsAt") VALUES ('ss6_6', 'sch_6', 'p01', 'inst_mhh', 'cat_day', 's_dm', 'Day M', '2027-01-03', '2027-01-03 07:00:00', '2027-01-03 15:00:00');
 INSERT INTO "ScheduledShift" ("id", "scheduleId", "participantId", "institutionId", "categoryId", "shiftId", "name", "dutyDate", "startsAt", "endsAt") VALUES ('ss6_7', 'sch_6', 'p15', 'inst_mhh', 'cat_eve', 's_et', 'Evening T', '2027-01-02', '2027-01-02 15:00:00', '2027-01-02 23:00:00');
 INSERT INTO "ScheduledShift" ("id", "scheduleId", "participantId", "institutionId", "categoryId", "shiftId", "name", "dutyDate", "startsAt", "endsAt") VALUES ('ss6_8', 'sch_6', 'p15', 'inst_mhh', 'cat_eve', 's_et', 'Evening T', '2027-01-03', '2027-01-03 15:00:00', '2027-01-03 23:00:00');
+
+-- ── added 17 Nov 2026: a backup shift, required time off, a personal academic day ──
+INSERT INTO "Shift" ("id", "programId", "institutionId", "categoryId", "name", "startMinute", "durationMinutes", "daysOfWeek", "minParticipants", "maxParticipants", "isBackup", "backupRules", "backupRulesText")
+  VALUES ('s_bk', 'prog_demo', 'inst_mhh', 'cat_day', 'Backup', 420, 1440, ARRAY[0,1,2,3,4,5,6]::integer[], 1, 1, true,
+          '{"max_per_person": 3, "min_days_between": 3, "rest_before_hours": 0, "rest_after_hours": 0}',
+          'PGY-2 and up only. No more than 3 backup days each, at least 3 days apart.');
+INSERT INTO "ShiftRole" ("shiftId", "roleId", "eligible", "requiredCount") VALUES ('s_bk', 'role_pgy1', false, 0), ('s_bk', 'role_pgy2', true, 0), ('s_bk', 'role_pgy3', true, 0), ('s_bk', 'role_rot', false, 0);
+INSERT INTO "TimeOff" ("id", "programId", "participantId", "intervalId", "kind", "startDate", "endDate", "startMinute", "endMinute", "mandatory", "reason", "status")
+  VALUES ('to_req1', 'prog_demo', 'p09', 'iv_7', 'REQUIRED_OFF', '2027-01-20', '2027-01-20', 780, 1020, true, 'Specialist appointment, rescheduled at short notice', 'APPROVED');
+INSERT INTO "AcademicDay" ("id", "programId", "name", "dayOfWeek", "startMinute", "durationMinutes", "startDate", "endDate", "overlapPolicy", "participantId")
+  VALUES ('ad_p05', 'prog_demo', 'Research meeting', 4, 720, 120, '2027-01-04', '2027-01-31', 'BLOCKED', 'p05');

@@ -80,7 +80,7 @@ const ok = (cond, what) => { if (cond) { pass++; console.log("ok   " + what); } 
   ok((await p.getByTestId("rule-check").innerText()) === "None broken", "the independent rule check reports no hard rule broken");
   ok(open === 0, "nothing is left open on the demo block");
   const grid = p.getByTestId("people-grid");
-  ok((await grid.locator("tbody tr[data-person]").count()) === 18 && (await grid.locator("thead th").count()) === 31, "by-person grid: 18 people, 28 days");
+  ok((await grid.locator("tbody tr[data-person]").count()) === 18 && (await grid.locator("thead th").count()) === 32, "by-person grid: 18 people, 28 days, plus a Backup column");
   ok((await grid.locator("td[data-shift]").count()) === Number(filled), `by-person grid shows every filled shift once (${filled})`);
   const brooks = await grid.locator('tr[data-person="p02"]').innerText();
   ok((brooks.match(/VAC/g) ?? []).length === 7 && (await grid.locator('tr[data-person="p02"] td[title="Vacation"][data-shift]').count()) === 0, "a vacation week shows as VAC with no shift on it (Brooks, 11-17 Jan)");
@@ -95,13 +95,14 @@ const ok = (cond, what) => { if (cond) { pass++; console.log("ok   " + what); } 
   ok(/Night GP 21:00–07:00/.test(await sgrid.innerText()) && /LBJ Hospital/.test(await sgrid.innerText()), "shifts are grouped by institution with their times");
   await shot("schedule-review-shifts");
   await p.getByRole("tab", { name: /Goals & checks/ }).click(); await p.waitForURL(/view=details/); await p.waitForLoadState("networkidle");
-  ok((await p.getByTestId("goals-table").locator("tbody tr").count()) === 11, "goals are listed in priority order (11)");
+  ok((await p.getByTestId("goals-table").locator("tbody tr").count()) === 12, "goals are listed in priority order (12)");
   ok(/Every shift filled\s+Fully met/.test(await p.getByTestId("goals-table").innerText()), "the first goal, every shift filled, is met");
   ok((await p.getByTestId("people-table").locator("tbody tr").count()) === 18, "per-person figures for all 18");
   ok(/shares no code with the part that builds the schedule/.test(await p.getByTestId("checks").innerText()), "the page says how the schedule was checked");
   await shot("schedule-review-details");
   const csv = await (await ctx.request.get(BASE + review + "/csv")).text();
-  ok(csv.trim().split("\r\n").length === 266 && /^Date,Day,Shift,Institution/.test(csv), "the spreadsheet download has one line per shift (265 + header)");
+  const lines = csv.trim().split("\r\n");
+  ok(lines.length === 1 + 265 + 28 && /^Date,Day,Shift,Type,Institution/.test(csv) && lines.filter((l) => /,Backup/.test(l)).length === 28, "the spreadsheet download has one line per shift plus one per backup day (265 + 28 + header)");
 
   // ── who may see it ───────────────────────────────────────────────────────
   await signIn("Dr. Adams");

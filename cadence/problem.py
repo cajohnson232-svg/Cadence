@@ -70,6 +70,7 @@ class Resident:
     sites: tuple | None = None                          # None = any site
     unavailable: list = field(default_factory=list)     # hard "cannot work" rules, see Problem._unavailable
     only_refs: frozenset | None = None                  # if set, the only shift templates this person may work
+    site_share: dict = field(default_factory=dict)     # site -> target % of this person's shifts (soft, see "site split")
 
 
 @dataclass
@@ -98,6 +99,7 @@ class Rules:
     soft_max_nights_in_run: int = 6         # soft
     balance_tolerance_shifts: float = 1.0   # day/evening/night counts within this of fair share are "balanced"
     pod_tolerance_shifts: int = 1           # |pod A - pod B| up to this is "balanced"
+    site_share_tolerance_shifts: int = 1    # within this many shifts of a person's target split between sites is "met"
     history_days: int = 7
 
 
@@ -128,6 +130,7 @@ class Problem:
             requests_off={int(k): int(v) for k, v in r.get("requests_off", {}).items()},
             sites=tuple(r["sites"]) if r.get("sites") else None,
             only_refs=frozenset(r["only_shifts"]) if r.get("only_shifts") is not None else None,
+            site_share={k: int(v) for k, v in (r.get("site_share") or {}).items()},
             unavailable=[dict(u, start_min=to_min(u["start"]) if u.get("start") is not None else None,
                               dur_min=to_min(u.get("hours", 24))) for u in r.get("unavailable", [])])
             for r in cfg["residents"]]
@@ -269,6 +272,6 @@ class Problem:
 
 # Optimisation goals in strict priority order. The first two are the "never come
 # back empty" slacks; the rest are the soft goals from the spec.
-STAGES = ["open shifts", "contract shortfall", "backward rotations", "day/evening/night balance",
+STAGES = ["open shifts", "contract shortfall", "site split", "backward rotations", "day/evening/night balance",
           "night runs too close", "nights into vacation", "night share over limit", "pod balance",
           "isolated days off", "extra / over-long night runs", "requests off missed"]

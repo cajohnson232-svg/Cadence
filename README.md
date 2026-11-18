@@ -39,6 +39,11 @@ Needs Python 3.10+, NumPy and SciPy (`pip install -r requirements.txt`). `--back
 * Both are written to a temporary file and renamed, so a reader never sees half a file. The result is written
   last.
 
+* `--initial schedule.json` (17 Nov 2026) starts from a given schedule instead of building one: a list of
+  `{resident, day, name, start, end}`. Used by the app's Optimize. The engine checks it against the hard rules first
+  and refuses it if one is broken or if any shift no longer matches the inputs. From there the staged optimisation
+  runs as usual, so no goal can get worse unless a goal above it improves.
+
 The engine still shares no code and no database access with the web app: one JSON file in, one out.
 
 ## What the admin configuration contains
@@ -54,6 +59,8 @@ Everything below is input. `tests/configs/*.json` are complete examples.
 | `residents` | PGY, contract min/max shifts, vacation, mandatory days off, weighted requests off, sites |
 | `history` | shifts worked in the last 7 days of the previous block (carried across the boundary) |
 | `rules` | weekly hours cap, rest ratio, night cap, night-run limits, 45% night share, balance tolerances |
+| `residents[].site_share` | (17 Nov 2026) target percent of a resident's shifts at each site, e.g. `{"MHH": 60, "LBJ": 40}`. A soft goal, third in priority ("site split"), met within `rules.site_share_tolerance_shifts` (default 1) shifts |
+| `backup` | (17 Nov 2026) backup lines: name, start, hours, weekdays, headcount, eligible resident ids, and `rules`: `max_per_person`, `min_days_between`, `rest_before_hours`, `rest_after_hours`. See "Backup" below |
 
 ## Added for the data model (13 Nov 2026)
 
@@ -100,6 +107,18 @@ added and has not been re-run; they do nothing unless a configuration uses them.
      worsen an earlier goal.
 5. **Independent validator**: plain loops over actual clock times, no shared code with the model. Every move the
    exact solver proposes is also re-checked by it before being accepted.
+
+**Backup** (17 Nov 2026) is chosen after the clinical schedule is final, in `cadence/backup.py`: one exact
+integer program (SciPy's HiGHS) that fills each day's backup line, at most one backup a day per person, within
+the per-person maximum and spacing, never on a day the person works a clinical shift or within the rest hours
+around one, never on vacation, mandatory or required time off, and never inside the person's weekly 24h free
+period (which is kept free of backup too). Its objective is weighted so that open days count most, then the largest number of
+backups any one person has, then request days used. Open days come back with the reason for each person. A separate plain-loop
+checker re-checks the result. Backup is on call: it does not count toward shifts or hours.
+
+Goals in priority order (12): open shifts, contract shortfall, site split, backward rotations, day/evening/night
+balance, night runs too close, nights into vacation, night share over limit, pod balance, isolated days off,
+extra or over-long night runs, requests off missed.
 
 Hard rules: coverage and PGY eligibility, one shift per day (with the nights exception above), rest >= length of
 the prior shift, weekly clinical-hours cap on every rolling 7x24h window, one 24h period free of shifts and attended
@@ -198,5 +217,7 @@ tried on a 30-shift/day program in one piece. `python run.py <config> --backend 
 * Any separate weekly cap on total hours (clinical plus academic); only the clinical-hours cap is enforced.
 * Richer staffing mixes ("at least one PGY-3 among the night team"), must/must-not work together, weekend fairness.
 * A multi-block driver carrying cumulative night/weekend counts through the year.
+* Backup chosen together with the clinical schedule (today the clinical schedule comes first and is never changed
+  to make backup easier).
 * Changing a generated schedule by hand in the web app. (Starting the engine from the app, reviewing the result
   and publishing it are built: see `web/README.md`.)

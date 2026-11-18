@@ -8,7 +8,9 @@
 //                   the engine, stored only, needs review, or not included
 //   warnings        what an admin should know before running
 //
-// A port of datamodel/compile_interval.py; tests check the two give the engine the same input.
+// Started as a port of datamodel/compile_interval.py; since 17 Nov 2026 it does more (splits, backup shifts,
+// required time off, personal academic days, entered prior shifts) and is the one the app uses.
+import { cleanBackupRules, describeBackupRules } from "./backup-rules";
 import { db } from "./db";
 import { academicSessions } from "./domain";
 import { REQUESTS_PRIORITY, TEMPLATE, engineStatus, ruleText } from "./rule-templates";
@@ -87,9 +89,12 @@ export async function compileInterval(intervalId: string) {
   if (seen.join() !== ENGINE_GOAL_ORDER.filter((t) => seen.includes(t)).join()) warn.push("Soft-rule priorities differ from the engine's built-in order; the engine's order is used for now.");
 
   // ---------------- shift templates, with special staffing days folded in ----------------
-  const shiftList = shiftsAll.filter((s) => s.active && !s.archivedAt).sort((a, b) => a.id.localeCompare(b.id));
+  // backup (on-call) shifts are scheduled separately, after the clinical schedule; one that "counts as a shift" is an ordinary shift
+  const isOnCall = (s: Any) => s.isBackup && !cleanBackupRules(s.backupRules).counts_as_shift;
+  const backupList = shiftsAll.filter((s) => s.active && !s.archivedAt && isOnCall(s)).sort((a, b) => a.id.localeCompare(b.id));
+  const shiftList = shiftsAll.filter((s) => s.active && !s.archivedAt && !isOnCall(s)).sort((a, b) => a.id.localeCompare(b.id));
   const shifts = by(shiftList);
-  const eligRows = await db.shiftRole.findMany({ where: { shiftId: { in: shiftList.map((s) => s.id) } } });
+  const eligRows = await db.shiftRole.findMany({ where: { shiftId: { in: shiftsAll.map((s) => s.id) } } });
   const elig = new Map(eligRows.map((e) => [e.shiftId + "|" + e.roleId, e]));
   const isElig = (sid: string, rid: string) => elig.get(sid + "|" + rid)?.eligible ?? true;
   const levels = roleList.map((r) => r.level);
@@ -98,7 +103,7 @@ export async function compileInterval(intervalId: string) {
     const g = { ...s, ...Object.fromEntries(Object.entries(over).filter(([, v]) => v !== null && v !== undefined)) };
     return {
       name: g.name, ref: s.id ?? g.name, site: insts[g.institutionId].shortCode, pod: g.areaId ? areas[g.areaId].shortCode : "", category: cats[g.categoryId].name,
-      start: hhmm(g.startMinute), hours: g.durationMinutes / 60, headcount: g.minParticipants, max_headcount: Math.max(g.maxParticipants ?? 0, g.minParticipants), min_pgy: s.id && shifts[s.id] ? minLevel(s.id) : 1,
+      start: hhmm(g.startMinute), hours: g.durationMinutes / 60, headcount: g.minParticipants, max_headcount: Math.max(g.maxParticipants ?? 0, g.minParticipants), min_pgy: s.id ? minLevel(s.id) : 1,
       counts_as_previous_day: !!g.countsAsPreviousDay, weekdays: [...(g.daysOfWeek ?? [])], except_days: [] as number[],
     } as Any;
   };
@@ -113,7 +118,7 @@ export async function compileInterval(intervalId: string) {
     const d = idx(sd.date), wd = dow(sd.date);
     if (sd.mode === "REPLACE") for (const s of shiftList) if (s.institutionId === sd.institutionId && s.daysOfWeek.includes(wd)) tmpl[s.id].except_days.push(d);
     for (const ln of sd.shifts) {
-      const base = ln.shiftId ? shifts[ln.shiftId] : undefined;
+      const base = ln.shiftId ? shifts[ln.shiftId] ?? shiftsAll.find((x) => x.id === ln.shiftId) : undefined;     // a replacement may copy an inactive shift
       if ((ln.action === "CHANGE" || ln.action === "REMOVE") && sd.mode === "MODIFY" && ln.shiftId && tmpl[ln.shiftId]) tmpl[ln.shiftId].except_days.push(d);
       if (ln.action === "REMOVE") continue;
       const src: Any = base ? { ...base } : { minParticipants: 1 };
@@ -132,7 +137,7 @@ export async function compileInterval(intervalId: string) {
 
   // ---------------- participants: who is here, for how many shifts, and when they are off ----------------
   const [asg, adj, off] = await Promise.all([
-    db.assignment.findMany({ where: { programId: pid, startDate: { lte: end }, endDate: { gte: start } }, include: { institutions: true, shifts: true }, orderBy: { id: "asc" } }),
+    db.assignment.findMany({ where: { programId: pid, startDate: { lte: end }, endDate: { gte: start } }, include: { institutions: true }, orderBy: { id: "asc" } }),
     db.shiftAdjustment.findMany({ where: { intervalId } }),
     db.timeOff.findMany({ where: { programId: pid, startDate: { lte: end }, endDate: { gte: start } }, orderBy: [{ startDate: "asc" }, { id: "asc" }] }),
   ]);
@@ -142,40 +147,62 @@ export async function compileInterval(intervalId: string) {
   for (const p of peopleList) {
     const mine = asg.filter((a) => a.participantId === p.id);
     if (!mine.length) continue;
-    const here = new Set<number>(), sites = new Set<string>(), only = new Set<string>();
-    let lo = 0, hi = 0;
+    const here = new Set<number>(), sites = new Set<string>(), extra: Any[] = [], shares: Record<string, number> = {}, notes: string[] = [];
+    let lo = 0, hi = 0, noNights = false;
+    const role = roles[p.roleId];
     for (const a of mine) {
       const days = eachDay(a.startDate, a.endDate).filter(inside);
       days.forEach((d) => here.add(idx(d)));
       const share = days.length / (dayDiff(a.startDate, a.endDate) + 1);
       if (share < 1) warn.push(`${pname(p.id)}: assignment ${ymd(a.startDate)} to ${ymd(a.endDate)} only partly overlaps the interval; its shift count is pro-rated to ${Math.round(share * 100)}%.`);
-      lo += Math.round(a.minShifts * share); hi += Math.round(a.maxShifts * share);
+      // shift counts come from the role (an older assignment may still carry its own)
+      const aMin = a.minShifts ?? role.defaultMinShifts, aMax = a.maxShifts ?? role.defaultMaxShifts;
+      if (aMin == null || aMax == null) warn.push(`${pname(p.id)}: the role ${role.name} has no default number of shifts, so 0 is used. Set it under Roles.`);
+      lo += Math.round((aMin ?? 0) * share); hi += Math.round((aMax ?? aMin ?? 0) * share);
       (a.institutions.length ? a.institutions.map((i) => i.institutionId) : instList.map((i) => i.id)).forEach((i) => sites.add(i));
-      a.shifts.forEach((s) => only.add(s.shiftId));
+      if (a.institutions.length > 1 && a.institutions.every((i) => i.sharePercent != null))
+        for (const i of a.institutions) shares[insts[i.institutionId].shortCode] = i.sharePercent!;
+      for (const i of a.institutions) {              // only at this institution from / until these dates
+        const code = insts[i.institutionId].shortCode;
+        if (i.startDate && i.startDate > start) extra.push({ label: `not at ${code} before ${ymd(i.startDate)}`, sites: [code], to_day: idx(i.startDate) - 1 });
+        if (i.endDate && i.endDate < end) extra.push({ label: `not at ${code} after ${ymd(i.endDate)}`, sites: [code], from_day: idx(i.endDate) + 1 });
+      }
+      noNights ||= a.noNights;
+      if (a.notes) notes.push(a.notes);
     }
     const mineAdj = adj.filter((x) => x.participantId === p.id);
     const delta = mineAdj.reduce((a, x) => a + x.delta, 0);
     const caps = live.filter((r) => r.template === "max_shifts_per_interval" && (r.scope === "PROGRAM" || r.roleId === p.roleId || r.participantId === p.id)).map((r) => r.params.n);
     hi = Math.max(0, Math.min(hi + delta, ...caps)); lo = Math.max(0, Math.min(lo + delta, hi));
     const level = roles[p.roleId].level;
-    const roleOk = shiftList.filter((s) => isElig(s.id, p.roleId)).map((s) => s.id);
-    const allowed = only.size ? roleOk.filter((s) => only.has(s)) : roleOk;
+    const allowed = shiftList.filter((s) => isElig(s.id, p.roleId)).map((s) => s.id);
     const simple = shiftList.filter((s) => level >= tmpl[s.id].min_pgy).map((s) => s.id);
     const res: Any = {
       id: p.id, name: pname(p.id), pgy: level, shifts_min: lo, shifts_max: hi, sites: [...sites].map((i) => insts[i].shortCode).sort(),
-      vacation: [] as number[], mandatory_off: Array.from({ length: n }, (_, i) => i).filter((i) => !here.has(i)), requests_off: {} as Record<string, number>, unavailable: [] as Any[],
+      vacation: [] as number[], mandatory_off: Array.from({ length: n }, (_, i) => i).filter((i) => !here.has(i)), requests_off: {} as Record<string, number>, unavailable: [...extra] as Any[],
     };
+    if (Object.keys(shares).length) res.site_share = shares;
+    if (noNights) res.unavailable.push({ label: "no nights", categories: catList.filter((c) => c.isNight).map((c) => c.name) });
     if ([...allowed].sort().join() !== [...simple].sort().join()) res.only_shifts = [...allowed].sort();
     compiled.push({ origin: "Assignment", id: mine[0].id, template: "shift_count", scope: "PARTICIPANT", appliesTo: res.name, level: "HARD", engine: "enforced",
-      text: `${lo}-${hi} shifts at ${res.sites.join(", ")}` + (delta ? ` (adjusted ${delta > 0 ? "+" : ""}${delta}: ${mineAdj.map((x) => x.reason).join("; ")})` : "")
-        + (here.size < n ? `; present ${here.size} of ${n} days` : "") + (only.size ? "; limited to listed shifts" : "") });
+      text: `${lo}-${hi} shifts at ${res.sites.join(", ")}` + (delta ? ` (adjusted ${delta > 0 ? "+" : ""}${delta}: ${mineAdj.map((x) => x.reason || "no reason given").join("; ")})` : "")
+        + (here.size < n ? `; present ${here.size} of ${n} days` : "") + (extra.length ? `; ${extra.map((u) => u.label).join("; ")}` : ""), note: notes.join(" ") || undefined });
+    if (res.site_share) compiled.push({ origin: "Assignment", id: mine[0].id, template: "site_split", scope: "PARTICIPANT", appliesTo: res.name, level: "SOFT", engine: "enforced",
+      text: `Split between institutions: ${Object.entries(shares).map(([k, v]) => `${v}% ${k}`).join(", ")} (within 1 shift)` });
+    if (noNights) compiled.push({ origin: "Assignment", id: mine[0].id, template: "unavailable", scope: "PARTICIPANT", appliesTo: res.name, level: "HARD", engine: "enforced", text: "No night shifts", note: notes.join(" ") || undefined });
     for (const t of off.filter((t) => t.participantId === p.id)) {
       const days = eachDay(t.startDate, t.endDate).filter(inside).map(idx);
-      const kind = ({ VACATION: "Vacation", REQUEST_OFF: "Request off", FIRST_DAY_OFF: "First day off", LAST_DAY_OFF: "Last day off" } as Any)[t.kind];
+      const kind = ({ VACATION: "Vacation", REQUEST_OFF: "Request off", FIRST_DAY_OFF: "First day off", LAST_DAY_OFF: "Last day off", REQUIRED_OFF: "Required time off" } as Any)[t.kind];
+      const window = t.startMinute != null && t.endMinute != null ? `, ${hhmm(t.startMinute)}-${hhmm(t.endMinute)}` : "";
       const entry = { origin: kind, id: t.id, template: "unavailable", scope: "PARTICIPANT", appliesTo: res.name, from: ymd(t.startDate), to: ymd(t.endDate),
-        text: `Off ${ymd(t.startDate)} to ${ymd(t.endDate)}` + (t.reason ? ` (${t.reason})` : "") };
+        text: `Off ${ymd(t.startDate)} to ${ymd(t.endDate)}${window}` + (t.reason ? ` (${t.reason})` : "") };
       if (t.status !== "APPROVED") { compiled.push({ ...entry, level: "-", engine: `not included (${t.status.toLowerCase()})` }); continue; }
       if (t.kind === "VACATION") { res.vacation.push(...days); compiled.push({ ...entry, level: "HARD", engine: "enforced" }); }
+      else if (t.kind === "REQUIRED_OFF" && window) {        // a time window on each of those days
+        const hours = (((t.endMinute! - t.startMinute!) % 1440) + 1440) % 1440 / 60 || 24;
+        res.unavailable.push({ label: t.reason || "required time off", from_day: Math.max(0, idx(t.startDate)), to_day: Math.min(n - 1, idx(t.endDate)), start: hhmm(t.startMinute!), hours });
+        compiled.push({ ...entry, level: "HARD", engine: "enforced" });
+      }
       else if (t.mandatory) { res.mandatory_off = [...new Set([...res.mandatory_off, ...days])].sort((a: number, b: number) => a - b); compiled.push({ ...entry, level: "HARD", engine: "enforced" }); }
       else {
         const w = WEIGHT[t.priority ?? "LOW"];
@@ -202,14 +229,17 @@ export async function compileInterval(intervalId: string) {
   const sessions = await academicSessions(pid, addDays(start, -7), end);
   const academic = sessions.map((s) => ({
     name: s.name, day: idx(s.date), start: hhmm(s.startMinute), hours: s.durationMinutes / 60, if_shift_overlaps: s.policy.toLowerCase(),
-    protect_before_hours: s.protectBefore / 60, protect_after_hours: s.protectAfter / 60, excused: s.excused, also_attend: s.also,
-    ...(s.roleIds.length ? { pgy: [...new Set(s.roleIds.map((r) => roles[r].level))].sort((a, b) => a - b) } : {}),
+    protect_before_hours: s.protectBefore / 60, protect_after_hours: s.protectAfter / 60,
+    ...(s.participantId
+      ? { pgy: [-1], also_attend: [s.participantId], excused: [] }          // personal: only this participant, whatever their level
+      : { excused: s.excused, also_attend: s.also, ...(s.roleIds.length ? { pgy: [...new Set(s.roleIds.map((r) => roles[r].level))].sort((a, b) => a - b) } : {}) }),
   }));
   const series = await db.academicDay.findMany({ where: { programId: pid, active: true, archivedAt: null }, include: { roles: true, _count: { select: { exceptions: true } } }, orderBy: { id: "asc" } });
   for (const a of series) {
     const count = sessions.filter((s) => s.academicDayId === a.id && s.date >= start).length;
-    compiled.push({ origin: "Academic day", id: a.id, template: "academic_time", scope: a.roles.length ? "ROLE" : "PROGRAM", level: "HARD", engine: "enforced",
-      appliesTo: a.roles.map((r) => roles[r.roleId].name).join(", ") || "Everyone",
+    if (a.participantId && !count) continue;
+    compiled.push({ origin: a.participantId ? "Personal academic day" : "Academic day", id: a.id, template: "academic_time", scope: a.participantId ? "PARTICIPANT" : a.roles.length ? "ROLE" : "PROGRAM", level: "HARD", engine: "enforced",
+      appliesTo: a.participantId ? pname(a.participantId) : a.roles.map((r) => roles[r.roleId].name).join(", ") || "Everyone",
       text: `${a.name}: ${count} session(s) in the interval; overlapping shifts are ${a.overlapPolicy.toLowerCase()}` + (a._count.exceptions ? `; ${a._count.exceptions} personal exception(s)` : "") });
   }
 
@@ -218,20 +248,48 @@ export async function compileInterval(intervalId: string) {
   const prev = await db.schedule.findFirst({ where: { status: "PUBLISHED", interval: { programId: pid, endDate: { lt: start } } }, orderBy: { interval: { endDate: "desc" } } });
   if (prev) {
     const ids = new Set(residents.map((r) => r.id));
-    const rows = await db.scheduledShift.findMany({ where: { scheduleId: prev.id, participantId: { not: null }, dutyDate: { gte: addDays(start, -7) } }, orderBy: { startsAt: "asc" } });
+    const rows = await db.scheduledShift.findMany({ where: { scheduleId: prev.id, participantId: { not: null }, backup: false, dutyDate: { gte: addDays(start, -7) } }, orderBy: { startsAt: "asc" } });   // on-call days were not worked
     for (const h of rows) {
       if (!ids.has(h.participantId!)) continue;
       const day0 = new Date(Date.UTC(h.startsAt.getUTCFullYear(), h.startsAt.getUTCMonth(), h.startsAt.getUTCDate()));
       history.push({ resident: h.participantId, day: idx(day0), start: h.startsAt.toISOString().slice(11, 16), hours: (h.endsAt.getTime() - h.startsAt.getTime()) / 3600000,
         category: cats[h.categoryId].name, name: h.name, counts_as_previous_day: h.dutyDate < day0 });
     }
-  } else warn.push("No published schedule for the previous interval: boundary rules start from a clean slate.");
+  } else {
+    const entered = await db.priorShift.findMany({ where: { intervalId }, orderBy: [{ date: "asc" }, { startMinute: "asc" }] });
+    const ids = new Set(residents.map((r) => r.id));
+    let notHere = 0;
+    for (const h of entered) {
+      if (idx(h.date) < -7 || idx(h.date) >= 0) continue;
+      if (!ids.has(h.participantId)) { notHere++; continue; }
+      history.push({ resident: h.participantId, day: idx(h.date), start: hhmm(h.startMinute), hours: h.durationMinutes / 60, category: cats[h.categoryId].name, name: h.name });
+    }
+    if (entered.length) compiled.push({ origin: "Previous interval", id: intervalId, template: "history", scope: "PROGRAM", appliesTo: "Everyone", level: "HARD", engine: "enforced",
+      text: `${history.length} shift(s) entered by hand for the 7 days before the interval` });
+    if (notHere) warn.push(`${notHere} shift(s) entered for the previous interval belong to people not assigned to this interval, so they are ignored.`);
+    else warn.push("No published schedule for the previous interval: boundary rules start from a clean slate.");
+  }
+
+  // ---------------- backup (on-call) shifts ----------------
+  const backup = backupList.map((b) => {
+    const r = cleanBackupRules(b.backupRules);
+    const eligible = residents.filter((x) => isElig(b.id, people[x.id].roleId)).map((x) => x.id);
+    compiled.push({ origin: "Backup shift", id: b.id, template: "backup", scope: "INSTITUTION", appliesTo: insts[b.institutionId].name, level: "HARD", engine: "enforced",
+      text: `${b.name} every ${b.daysOfWeek.length === 7 ? "day" : "listed weekday"}, ${hhmm(b.startMinute)} for ${b.durationMinutes / 60}h, ${b.minParticipants} person: ${describeBackupRules(r)}; ${eligible.length} eligible`,
+      note: r.not_understood ? `Not understood, not enforced: ${r.not_understood}` : undefined });
+    if (r.not_understood) warn.push(`${b.name}: part of its rules could not be turned into rules and is not enforced: "${r.not_understood}"`);
+    if (!eligible.length) warn.push(`${b.name}: nobody assigned to this interval is eligible for it. Tick roles in its eligibility grid.`);
+    return { name: b.name, ref: b.id, site: insts[b.institutionId].shortCode, category: cats[b.categoryId].name, start: hhmm(b.startMinute), hours: b.durationMinutes / 60,
+      weekdays: [...b.daysOfWeek], headcount: b.minParticipants, eligible, rules: { max_per_person: r.max_per_person, min_days_between: r.min_days_between,
+        rest_before_hours: r.rest_before_hours, rest_after_hours: r.rest_after_hours } };
+  });
 
   const config = {
     name: `${iv.name} (${ymd(start)} to ${ymd(end)})`, start_date: ymd(start), n_days: n,
     category_order: catList.map((c) => c.name), night_categories: catList.filter((c) => c.isNight).map((c) => c.name),
     balance_groups: Object.fromEntries(catList.map((c) => [c.name, c.balanceGroup || c.name])),
     pod_pairs: podPairs, rules: cfgRules, shift_templates: templates, academic_time: academic, residents, history,
+    ...(backup.length ? { backup } : {}),
   };
   return { interval: iv, config, compiledRules: compiled, warnings: warn, sessions };
 }

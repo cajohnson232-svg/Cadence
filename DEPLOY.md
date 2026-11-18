@@ -111,11 +111,39 @@ their sign-in; everyone else's access is removed.
 Then enter your own, in this order: Institutions, Roles, Participants, Shift categories, Shifts, an Interval,
 Assignments, then time off and rules.
 
+## Part 6 (optional). Turn on Claude
+
+Three screens read plain English: Other Restrictions, a backup shift's rules, and a special staffing day's
+changes. Without Claude they use a simple built-in keyword reader that understands common phrasings. With Claude
+they understand far more. Either way you see the result and can edit it before anything is saved.
+
+1. Go to **console.anthropic.com**, sign in or create an account, add a payment method under Billing, and set a
+   monthly spend limit there (Limits) so the cost can never surprise you.
+2. Under **API keys**, create a key. Copy it; it is shown once.
+3. In Render, open the **cadence** web service > **Environment**. Find `ANTHROPIC_API_KEY` (or add it), paste the
+   key as its value, and save. Render restarts the site with it. Do not put the key in GitHub.
+4. Check it: Other Restrictions > type a sentence > Turn into a rule. Under the result it should say "Interpreter: Claude
+   (claude-sonnet-5-5)". If it names the keyword stand-in "because …", the reason follows (for example a mistyped key).
+
+**Cost.** Billed by Anthropic per use, not monthly. Each reading is one short request; at the listed prices at the
+time of writing, that is roughly a cent or two. Check anthropic.com/pricing for current prices.
+
+**What is sent to Anthropic** each time: the sentence typed, and the names of the program's roles, shifts, shift
+categories and institutions; for Other Restrictions, also participants' names. Never schedules, time off, notes or
+email addresses. See "Before real people's data goes in".
+
+`ANTHROPIC_MODEL` chooses the model (default `claude-sonnet-5-5`). An old setting called `RULE_PARSER` from the
+previous version is no longer used and can be deleted from the Environment tab.
+
 ## Later
 
 **Changing the site.** Whenever the GitHub repository changes, Render rebuilds and switches to the new version
 by itself, and brings the database up to date as it starts. Do not let this happen while a schedule is being
 generated: the run is lost (the site says so) and has to be started again.
+
+The 17 Nov 2026 update changes assignments: shift counts now come from each role, so counts typed on assignments
+before it are cleared when it installs (check your roles' minimum and maximum), and each existing assignment is
+attached to the interval it falls in.
 
 **Backups.** Render keeps paid databases recoverable to any moment in the past 3 days on the free "Hobby"
 workspace, and 7 days on the $25 "Pro" workspace. You can also export a copy from the database's Recovery page;
@@ -153,6 +181,9 @@ Not tested:
 * How fast the engine is on Render's 1-CPU server. The time settings (quick, standard, thorough) were tuned on
   a different machine; on a slower one the same setting gives a less polished schedule, never an invalid one.
 * Browsers other than Chrome's engine.
+* **Calling Claude.** The Anthropic API could not be reached from the machine this was built on. The calls were
+  tested against a stand-in that answers the way Anthropic documents, and the fallback when the call fails was
+  tested too. The first real call happens on your site after Part 6.
 
 ## Before real people's data goes in
 

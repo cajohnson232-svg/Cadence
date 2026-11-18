@@ -15,11 +15,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     where: { scheduleId: sid }, include: { participant: { include: { role: true } }, institution: true, category: true },
     orderBy: [{ startsAt: "asc" }, { name: "asc" }],
   });
-  const lines = [["Date", "Day", "Shift", "Institution", "Category", "Start", "End", "Hours", "Participant", "Role"].join(",")];
+  const lines = [["Date", "Day", "Shift", "Type", "Institution", "Category", "Start", "End", "Hours", "Participant", "Role"].join(",")];
   for (const r of rows) {
     const day = new Date(ymd(r.startsAt) + "T00:00:00Z");
-    lines.push([ymd(r.startsAt), DOW[dow(day)], r.name, r.institution.name, r.category.name, hm(r.startsAt), hm(r.endsAt),
-      (r.endsAt.getTime() - r.startsAt.getTime()) / 3600000, r.participant ? `${r.participant.lastName}, ${r.participant.firstName}` : "OPEN", r.participant?.role.name ?? ""].map(cell).join(","));
+    lines.push([ymd(r.startsAt), DOW[dow(day)], r.name, r.backup ? "Backup (on call)" : "Shift", r.institution.name, r.category.name, hm(r.startsAt), hm(r.endsAt),
+      r.backup ? 0 : (r.endsAt.getTime() - r.startsAt.getTime()) / 3600000, r.participant ? `${r.participant.lastName}, ${r.participant.firstName}` : "OPEN", r.participant?.role.name ?? ""].map(cell).join(","));
   }
   const name = `${sch.interval.name}_${sch.label ?? "schedule"}`.replace(/[^\w-]+/g, "_");
   return new Response(lines.join("\r\n") + "\r\n", { headers: { "content-type": "text/csv; charset=utf-8", "content-disposition": `attachment; filename="${name}.csv"` } });

@@ -316,6 +316,7 @@ class Scheduler:
         g = gcd(100, P.rules.max_night_fraction_pct)
         self.scale = {s: 1.0 for s in STAGES}
         self.scale["day/evening/night balance"] = 10.0
+        self.scale["site split"] = 100.0
         self.scale["night share over limit"] = 6000.0 / g           # -> hours
         self.stats = defaultdict(int)
 
@@ -518,8 +519,11 @@ class Scheduler:
         return sorted({rid, *others}), range(max(0, c - w), min(n, c + w + 1))
 
     # ---- the staged run -----------------------------------------------------------
-    def run(self, strategy="auto", seconds=420.0, polish_seconds=60.0, sub_seconds=4.0):
-        """seconds = time allowed for the exact stage-by-stage optimisation."""
+    def run(self, strategy="auto", seconds=420.0, polish_seconds=60.0, sub_seconds=4.0, initial=None):
+        """seconds = time allowed for the exact stage-by-stage optimisation.
+        initial = a schedule to start from instead of building a new one ("optimize"); it must break no
+        hard rule. Every later step only accepts changes that leave earlier goals no worse, so the result
+        is never worse than the starting schedule on any goal, taken in priority order."""
         P, t0 = self.P, time.time()
         nx = sum(b.nx for b in self.blocks.values())
         if strategy == "auto":
@@ -527,11 +531,20 @@ class Scheduler:
         self.log(f"Model: {len(self.blocks)} residents, {nx:,} assignment decisions, "
                  f"{sum(b.A.nnz for b in self.blocks.values()):,} non-zeros. "
                  f"Engine: {'OR-Tools CP-SAT' if self.backend == 'cpsat' else 'HiGHS'}, strategy: {strategy}")
-        self.progress("first schedule")
-        g = greedy(P)
-        self.load(g)
         total_need = sum(s.need for s in P.slot_list)
-        self.log(f"Greedy warm start: {int(self.total(STAGES[0]))} of {total_need} shifts open ({time.time() - t0:.0f}s)")
+        if initial is not None:
+            self.progress("first schedule")
+            V, _, _ = validator.validate(P, initial)
+            if V:
+                raise ValueError(f"the schedule to start from breaks {len(V)} hard rule(s), e.g. {V[0]}")
+            g = {r.id: list(initial.get(r.id, [])) for r in P.residents}
+            self.load(g)
+            self.log(f"Starting from the given schedule: {int(self.total(STAGES[0]))} of {total_need} shifts open")
+        else:
+            self.progress("first schedule")
+            g = greedy(P)
+            self.load(g)
+            self.log(f"Greedy warm start: {int(self.total(STAGES[0]))} of {total_need} shifts open ({time.time() - t0:.0f}s)")
         if polish_seconds:
             tp = time.time()
             self.progress("swaps", open=int(self.total(STAGES[0])))
@@ -541,7 +554,7 @@ class Scheduler:
         bad = self.model_check()
         if bad:
             self.log(f"WARNING: warm-start schedule breaks {bad} model rows - model and validator disagree")
-        weight = {0: 4.0, 1: 2.0, 2: 3.0}
+        weight = {STAGES.index(k): w for k, w in (("open shifts", 4.0), ("contract shortfall", 2.0), ("backward rotations", 3.0))}
         ids, deadline = [r.id for r in P.residents], time.time() + seconds
         first, status = {}, {}
         for sweep in range(1, 9):

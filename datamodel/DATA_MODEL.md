@@ -27,13 +27,13 @@ Your 13 entities are all here. **Bold** tables are ones I added.
 | | Role | PGY-1 ... Attending, with level and default min/max shifts |
 | | Participant | Name, email, phone, role, active, plus a private calendar-feed token |
 | | **ShiftCategory** | Day / Evening / Swing / Night as *you* define them: rotation order, which count as nights |
-| | Shift | The template: institution, area, category, start, length, days of week, min/max headcount |
+| | Shift | The template: institution, area, category, start, length, days of week, min/max headcount. Can be a backup shift, with its rules in words and as fields |
 | | **ShiftRole** | Per shift and role: the eligibility checkbox and required headcount |
 | Schedule | Interval | Date range, draft -> locked -> published, request deadline and allowances |
-| | Assignment | A participant's contract for a date range: institutions, shift count, eligible shifts |
+| | Assignment | A participant in an interval: institutions (with share and optional dates at each), no nights, notes. Shift counts and eligible shifts come from the role (since 17 Nov 2026) |
 | | Special staffing day (+ lines) | For one date and institution: replace the day's shifts, or add / change / remove individual ones |
-| Time off | Academic day (+ roles, occurrences, exceptions) | Recurring session; a week can differ or be cancelled; per-person exceptions; blocked or excused |
-| | TimeOff | Vacation, requests off, and the first/last-day-off presets, in one table |
+| Time off | Academic day (+ roles, occurrences, exceptions) | Recurring session; a week can differ or be cancelled; per-person exceptions; blocked or excused. With a participant set, it is that person's own academic day |
+| | TimeOff | Vacation, requests off, required time off (whole days or a time window), and the first/last-day-off presets, in one table |
 | | ShiftAdjustment | +/- shifts for a participant in an interval, with a reason |
 | Rules | Rule | The one rule table (below) |
 | Output | **Schedule**, **ScheduledShift** | A generated or imported schedule; one row per person per shift. Drives the calendar export and the next block's boundary checks. A generated schedule also records its engine run: status (queued, running, done, failed, cancelled), time given, start and finish, a fingerprint of the inputs it was built from, and the reason if it failed |
@@ -161,6 +161,23 @@ test suites still pass. The 13-block test matrix was not re-run after these addi
   server instance is running an engine job.
 * One database rule: an email address is stored in lower case, so the same address cannot be two accounts.
 * Sign-in is by invitation only; see `web/README.md` for the rules and `DEPLOY.md` for putting it online.
+
+## Added for assignments, backup and Optimize (17 Nov 2026)
+
+* **Assignment**: `intervalId` (which interval it is for); `minShifts`/`maxShifts` may be empty, meaning the role's
+  numbers (existing values are cleared by migration 0005, and existing assignments are linked to the one interval
+  they overlap); `noNights`. **AssignmentInstitution**: `sharePercent`, `startDate`, `endDate`. The old per-assignment
+  list of eligible shifts (AssignmentShift) is no longer used; eligibility comes from the role grid.
+* **TimeOff**: kind `REQUIRED_OFF`, and `startMinute`/`endMinute` for a time window on each date.
+* **AcademicDay**: `participantId` for a personal academic day.
+* **Shift**: `isBackup`, `backupRules` (the fields), `backupRulesText` (the admin's words).
+* **SpecialStaffingDay**: `changeText` (the admin's words for a Modify day).
+* **ScheduledShift**: `backup` marks an on-call backup day; it is not a worked shift.
+* **PriorShift** (new): shifts entered by hand for the 7 days before an interval when no previous schedule is published.
+* Database rules: a share is 0-100, a window's end is after its start, a required-off window ends after it starts.
+
+`compile_interval.py` is now a legacy reference kept for `test_datamodel.py`; the app compiles with
+`web/src/lib/compile.ts`, which handles everything above.
 
 ## Screens
 

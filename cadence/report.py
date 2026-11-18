@@ -67,7 +67,7 @@ A night that starts after midnight is shown under the day it belongs to (the eve
 <div style="overflow-x:auto"><table>{''.join(rows)}</table></div></body></html>""")
 
 
-def result(P: Problem, run, violations, opens, short, pre_errors, pre_warnings, open_info):
+def result(P: Problem, run, violations, opens, short, pre_errors, pre_warnings, open_info, backup=None):
     """Everything a caller needs to store and show a schedule, as plain JSON-able data.
 
     All figures here come from the independent validator and the clock times, not from the solver's model.
@@ -102,7 +102,7 @@ def result(P: Problem, run, violations, opens, short, pre_errors, pre_warnings, 
             "requests_off_missed": sorted({s.cal for s in cur if s.cal in r.requests_off}),
             "goals": {k: v for k, v in validator.soft_resident(P, r, shifts, share).items() if v}})
     soft = validator.soft_metrics(P, A)
-    scale = {"day/evening/night balance": 10.0}
+    scale = {"day/evening/night balance": 10.0, "site split": 100.0}
     stage = {name: (first, last, status) for name, first, last, status in run["stages"]}
     goals = [{"name": g, "score": (float(sum(n for _, n in opens)) if g == "open shifts" else soft.get(g, 0) / scale.get(g, 1.0)),
               "start": stage.get(g, (0, 0, ""))[0], "status": stage.get(g, (0, 0, "optimal"))[2]} for g in STAGES]
@@ -118,4 +118,4 @@ def result(P: Problem, run, violations, opens, short, pre_errors, pre_warnings, 
         "open": [{"day": o["shift"].day, "cal": o["shift"].cal, "template": o["shift"].key[1], "name": o["shift"].name,
                   "site": o["shift"].site, "start": o["shift"].start, "end": o["shift"].end, "need": o["shift"].need,
                   "missing": o["missing"], "reasons": o["reasons"]} for o in open_info],
-        "residents": people, "slots": slots}
+        "residents": people, "slots": slots, "backup": backup}

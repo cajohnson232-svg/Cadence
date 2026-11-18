@@ -1,4 +1,8 @@
-"""The bridge between the web app's database and the scheduling engine.
+"""LEGACY REFERENCE. The web app compiles intervals itself (web/src/lib/compile.ts); this Python version
+is kept only for the data-model test and is no longer feature-complete (no backup shifts, site split
+or personal academic days). Do not use it to drive the engine.
+
+The bridge between the web app's database and the scheduling engine.
 
     compile_interval(db, interval_id) -> {"config": ..., "compiled_rules": [...], "warnings": [...]}
 
@@ -155,7 +159,7 @@ def compile_interval(db, interval_id):
         warn.append("Soft-rule priorities differ from the engine's built-in order; the engine's order is used for now.")
 
     # ---------------- shift templates, with special staffing days folded in ----------------
-    shifts = {s["id"]: s for s in db(f"""SELECT * FROM "Shift" WHERE "programId" = '{pid}' AND active AND "archivedAt" IS NULL""")}
+    shifts = {s["id"]: s for s in db(f"""SELECT * FROM "Shift" WHERE "programId" = '{pid}' AND active AND "archivedAt" IS NULL AND NOT "isBackup" """)}
     elig = {(e["shiftId"], e["roleId"]): e for e in db("""SELECT * FROM "ShiftRole" """) if e["shiftId"] in shifts}
     levels = sorted({r["level"] for r in roles.values()})
 
@@ -213,9 +217,11 @@ def compile_interval(db, interval_id):
 
     # ---------------- participants: who is here, for how many shifts, and when they are off ----------------
     asg = db(f"""SELECT * FROM "Assignment" WHERE "programId" = '{pid}' AND "startDate" <= '{end}' AND "endDate" >= '{start}'""")
-    a_inst, a_shift = {}, {}
+    a_inst, a_shift, a_win = {}, {}, {}
     for r in db("""SELECT * FROM "AssignmentInstitution" """):
         a_inst.setdefault(r["assignmentId"], []).append(r["institutionId"])
+        if r.get("startDate") or r.get("endDate"):
+            a_win.setdefault(r["assignmentId"], []).append(r)
     for r in db("""SELECT * FROM "AssignmentShift" """):
         a_shift.setdefault(r["assignmentId"], []).append(r["shiftId"])
     adj = db(f"""SELECT * FROM "ShiftAdjustment" WHERE "intervalId" = '{interval_id}'""")
@@ -239,7 +245,9 @@ def compile_interval(db, interval_id):
             if share < 1:
                 warn.append(f"{pname(p['id'])}: assignment {a0} to {a1} only partly overlaps the interval; "
                             f"its shift count is pro-rated to {share:.0%}.")
-            lo += round(a["minShifts"] * share); hi += round(a["maxShifts"] * share)
+            r_min = a["minShifts"] if a["minShifts"] is not None else roles[p["roleId"]]["defaultMinShifts"]     # empty = the role's default
+            r_max = a["maxShifts"] if a["maxShifts"] is not None else roles[p["roleId"]]["defaultMaxShifts"]
+            lo += round(r_min * share); hi += round(r_max * share)
             sites |= set(a_inst.get(a["id"], insts))
             only |= set(a_shift.get(a["id"], []))
         delta = sum(x["delta"] for x in adj if x["participantId"] == p["id"])
@@ -253,6 +261,16 @@ def compile_interval(db, interval_id):
         res = {"id": p["id"], "name": pname(p["id"]), "pgy": level, "shifts_min": lo, "shifts_max": hi,
                "sites": sorted(insts[i]["shortCode"] for i in sites), "vacation": [], "mandatory_off": sorted(set(range(n)) - here),
                "requests_off": {}, "unavailable": []}
+        # (17 Nov 2026) the two assignment settings the original tests rely on; the web app's compile step covers the rest
+        for a in mine:
+            if a.get("noNights"):
+                res["unavailable"].append({"label": "no nights", "categories": sorted(c["name"] for c in cats.values() if c["isNight"])})
+            for w in a_win.get(a["id"], []):
+                code = insts[w["institutionId"]]["shortCode"]
+                if w.get("startDate"):
+                    res["unavailable"].append({"label": f"not at {code} yet", "sites": [code], "to_day": idx(_d(w["startDate"])) - 1})
+                if w.get("endDate"):
+                    res["unavailable"].append({"label": f"no longer at {code}", "sites": [code], "from_day": idx(_d(w["endDate"])) + 1})
         if allowed != simple:
             res["only_shifts"] = sorted(allowed)
         compiled.append({"origin": "Assignment", "id": mine[0]["id"], "template": "shift_count", "scope": "PARTICIPANT",
@@ -264,14 +282,18 @@ def compile_interval(db, interval_id):
         for t in [t for t in off if t["participantId"] == p["id"]]:
             days = [idx(d) for d in _daterange(_d(t["startDate"]), _d(t["endDate"])) if inside(d)]
             kind = {"VACATION": "Vacation", "REQUEST_OFF": "Request off", "FIRST_DAY_OFF": "First day off",
-                    "LAST_DAY_OFF": "Last day off"}[t["kind"]]
+                    "LAST_DAY_OFF": "Last day off", "REQUIRED_OFF": "Required time off"}[t["kind"]]
             entry = {"origin": kind, "id": t["id"], "template": "unavailable", "scope": "PARTICIPANT", "applies_to": res["name"],
                      "from": t["startDate"], "to": t["endDate"], "text": f"Off {t['startDate']} to {t['endDate']}"
                      + (f" ({t['reason']})" if t["reason"] else "")}
             if t["status"] != "APPROVED":
                 compiled.append({**entry, "level": "-", "engine": f"not included ({t['status'].lower()})"})
                 continue
-            if t["kind"] == "VACATION":
+            if t["kind"] == "REQUIRED_OFF" and t.get("startMinute") is not None and days:
+                res["unavailable"].append({"from_day": min(days), "to_day": max(days), "start": f"{t['startMinute'] // 60:02d}:{t['startMinute'] % 60:02d}",
+                                           "hours": (t["endMinute"] - t["startMinute"]) / 60, "label": "Required time off"})
+                compiled.append({**entry, "level": "HARD", "engine": "enforced"})
+            elif t["kind"] == "VACATION":
                 res["vacation"] += days
                 compiled.append({**entry, "level": "HARD", "engine": "enforced"})
             elif t["mandatory"]:
@@ -340,7 +362,7 @@ def compile_interval(db, interval_id):
                   WHERE i."programId" = '{pid}' AND s.status = 'PUBLISHED' AND i."endDate" < '{start}'
                   ORDER BY i."endDate" DESC LIMIT 1""")
     if prev:
-        for h in db(f"""SELECT * FROM "ScheduledShift" WHERE "scheduleId" = '{prev[0]["id"]}' AND "participantId" IS NOT NULL
+        for h in db(f"""SELECT * FROM "ScheduledShift" WHERE "scheduleId" = '{prev[0]["id"]}' AND "participantId" IS NOT NULL AND NOT "backup"
                         AND "dutyDate" >= '{start - timedelta(days=7)}' ORDER BY "startsAt" """):
             if h["participantId"] not in {r["id"] for r in residents}:
                 continue

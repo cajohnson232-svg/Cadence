@@ -60,7 +60,7 @@ export default async function Me({ searchParams }: { searchParams: Promise<Recor
         {mineIv.map((iv) => {
           const u = usage(iv.id);
           const allow = iv.requestAllowance ?? me.program.defaultRequestAllowance, high = iv.highPriorityAllowance ?? me.program.defaultHighPriorityAllowance;
-          const mine = timeOff.filter((t) => t.intervalId === iv.id && t.kind !== "VACATION");
+          const mine = timeOff.filter((t) => t.intervalId === iv.id && t.kind !== "VACATION" && t.kind !== "REQUIRED_OFF");
           const isOpen = open.some((o) => o.id === iv.id);
           return (
             <Card key={iv.id} className="mt-2 overflow-hidden" data-testid={`requests-${iv.name}`}>
@@ -109,8 +109,7 @@ export default async function Me({ searchParams }: { searchParams: Promise<Recor
             {assignments.map((a) => (
               <div key={a.id} className="px-3 py-2 text-sm">
                 <div className="font-medium">{fmtRange(a.startDate, a.endDate)}</div>
-                <div className="text-muted">{a.minShifts === a.maxShifts ? a.minShifts : `${a.minShifts}–${a.maxShifts}`} shifts · {a.institutions.map((i) => i.institution.name).join(", ")}</div>
-                {a.shifts.length > 0 && <div className="text-xs text-muted">Only: {a.shifts.map((x) => x.shift.name).join(", ")}</div>}
+                <div className="text-muted">{(() => { const lo = a.minShifts ?? me.role.defaultMinShifts, hi = a.maxShifts ?? me.role.defaultMaxShifts; return lo === hi ? lo : `${lo}–${hi}`; })()} shifts · {a.institutions.map((i) => i.institution.name).join(", ")}{a.noNights ? " · no nights" : ""}</div>
               </div>
             ))}
             {!assignments.length && <div className="px-3 py-3 text-sm text-muted">None.</div>}
@@ -139,7 +138,7 @@ export default async function Me({ searchParams }: { searchParams: Promise<Recor
             <thead className="border-b border-line bg-surface"><tr>{["Date", "Shift", "Time", "Where"].map((x) => <th key={x} className={th}>{x}</th>)}</tr></thead>
             <tbody className="divide-y divide-line">
               {upcoming.map((x) => (
-                <tr key={x.id}><td className={td}>{fmtDate(new Date(ymd(x.startsAt) + "T00:00:00Z"))}</td><td className={td}>{x.name}</td>
+                <tr key={x.id}><td className={td}>{fmtDate(new Date(ymd(x.startsAt) + "T00:00:00Z"))}</td><td className={td}>{x.name}{x.backup && <span className="ml-1 text-xs text-muted">(backup, on call)</span>}</td>
                   <td className={td}>{shiftTimes(x.startsAt.getUTCHours() * 60 + x.startsAt.getUTCMinutes(), Math.round((x.endsAt.getTime() - x.startsAt.getTime()) / 60000))}</td><td className={td}>{x.institution.name}</td></tr>
               ))}
               {!upcoming.length && <tr><td colSpan={4} className="px-3 py-4 text-sm text-muted">No published shifts coming up yet.</td></tr>}

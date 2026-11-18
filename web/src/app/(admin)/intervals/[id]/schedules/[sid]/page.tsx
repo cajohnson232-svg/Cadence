@@ -6,7 +6,9 @@ import { requireAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { settleRun } from "@/lib/engine";
 import { publishChecks } from "@/lib/schedules";
-import { discardSchedule, publishSchedule, unpublishSchedule } from "@/app/actions";
+import { discardSchedule, optimizeSchedule, publishSchedule, unpublishSchedule } from "@/app/actions";
+import { BUDGETS } from "@/lib/engine";
+import { Select } from "@/components/ui/input";
 import { GOALS, categoryColors, fmtDuration, fmtWhen, shortCodes, standing, tint } from "@/lib/schedule-view";
 import { Flash } from "@/components/entity-pages";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -33,13 +35,14 @@ export default async function ScheduleReview({ params, searchParams }: { params:
 
   const [program, rows, cats, everyone, creator, published] = await Promise.all([
     db.program.findUniqueOrThrow({ where: { id: s.programId } }),
-    db.scheduledShift.findMany({ where: { scheduleId: sid }, include: { institution: true }, orderBy: [{ startsAt: "asc" }, { name: "asc" }] }),
+    db.scheduledShift.findMany({ where: { scheduleId: sid, backup: false }, include: { institution: true }, orderBy: [{ startsAt: "asc" }, { name: "asc" }] }),
     db.shiftCategory.findMany({ where: { programId: s.programId } }),
     db.participant.findMany({ where: { programId: s.programId }, include: { role: true } }),
     sch.createdById ? db.user.findUnique({ where: { id: sch.createdById } }) : null,
     db.schedule.findFirst({ where: { intervalId: id, status: "PUBLISHED", id: { not: sid } } }),
   ]);
   const tz = program.timezone, st = standing(sch);
+  const backupRows = await db.scheduledShift.findMany({ where: { scheduleId: sid, backup: true }, orderBy: [{ startsAt: "asc" }, { name: "asc" }] });
   const rep = sch.report as Any, snap = sch.inputSnapshot as Any;
   const view = VIEWS.some(([k]) => k === sp.view) ? sp.view! : "people";
   const head = (
@@ -103,6 +106,7 @@ export default async function ScheduleReview({ params, searchParams }: { params:
   for (const a of (snap?.academic_time ?? []) as Any[]) if (a.day >= 0 && a.day < n) academicDays.set(a.day, [...(academicDays.get(a.day) ?? []), `${a.name} ${a.start} (${a.hours}h)`]);
 
   const total = rows.length, openRows = rows.filter((r) => !r.participantId), filled = total - openRows.length;
+  const backupOpen = backupRows.filter((r) => !r.participantId).length;
   const violations: string[] = checks.violations;
   const under: string[] = rep?.validator?.under_contract_minimum ?? [];
   const requested = [...snapPeople.values()].reduce((a, r) => a + Object.keys(r.requests_off ?? {}).length, 0);
@@ -142,7 +146,7 @@ export default async function ScheduleReview({ params, searchParams }: { params:
         </Notice>
       )}
 
-      <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6" data-testid="summary">
+      <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7" data-testid="summary">
         <div className={tile}><div className="text-xs text-muted">Shifts filled</div><div className="text-lg font-semibold tabular-nums">{filled} <span className="text-sm font-normal text-muted">of {total}</span></div></div>
         <div className={cn(tile, openRows.length > 0 && "border-red-200 bg-red-50")}><div className="text-xs text-muted">Open shifts</div><div className={cn("text-lg font-semibold tabular-nums", openRows.length > 0 && "text-red-700")} data-testid="open-count">{openRows.length}</div></div>
         <div className={cn(tile, violations.length > 0 && "border-red-200 bg-red-50")}>
@@ -151,6 +155,10 @@ export default async function ScheduleReview({ params, searchParams }: { params:
         </div>
         <div className={tile}><div className="text-xs text-muted">Below contract minimum</div><div className="text-lg font-semibold tabular-nums">{rep ? under.length : "–"} <span className="text-sm font-normal text-muted">{under.length === 1 ? "person" : "people"}</span></div></div>
         <div className={tile}><div className="text-xs text-muted">Most hours in any 7 days</div><div className="text-lg font-semibold tabular-nums">{rep?.duty ? g(rep.duty.peak_rolling_7day_hours) : "–"}{weekLimit ? <span className="text-sm font-normal text-muted"> of {weekLimit} allowed</span> : null}</div></div>
+        {backupRows.length > 0 && (
+          <div className={cn(tile, backupOpen > 0 && "border-red-200 bg-red-50")} data-testid="backup-tile"><div className="text-xs text-muted">Backup days covered</div>
+            <div className={cn("text-lg font-semibold tabular-nums", backupOpen > 0 && "text-red-700")}>{backupRows.length - backupOpen} <span className="text-sm font-normal text-muted">of {backupRows.length}</span></div></div>
+        )}
         <div className={tile}><div className="text-xs text-muted">Request days granted</div><div className="text-lg font-semibold tabular-nums">{rep ? requested - missed : "–"} <span className="text-sm font-normal text-muted">of {requested}</span></div></div>
       </div>
 
@@ -178,6 +186,28 @@ export default async function ScheduleReview({ params, searchParams }: { params:
         </Card>
       )}
 
+      {sch.runStatus === "DONE" && rep && (
+        <Card className="mb-5 p-4" data-testid="optimize-card">
+          <h2 className="text-base font-semibold">Optimize this schedule</h2>
+          <p className="mt-1 max-w-3xl text-sm text-muted">
+            Keeps working on the goals below, starting from this schedule. Every hard rule still holds, and no goal gets worse unless a goal higher in the list improves.
+            The result is saved as a new draft next to this one; this one is not changed.{backupRows.length ? " Backup days are chosen again for the new schedule." : ""}
+          </p>
+          {checks.stale ? (
+            <p className="mt-3 text-sm text-amber-800">The inputs have changed since this schedule was made, so it cannot be optimized. Generate a new schedule instead.</p>
+          ) : (
+            <form action={optimizeSchedule.bind(null, sid)} className="mt-3 flex flex-wrap items-end gap-3">
+              <label className="text-sm"><span className="mb-1 block font-medium">Time to spend</span>
+                <Select name="budget" defaultValue="standard" className="w-48">
+                  <option value="quick">1 minute</option><option value="standard">5 minutes</option><option value="thorough">15 minutes</option>
+                </Select>
+              </label>
+              <Button variant="outline">Optimize</Button>
+            </form>
+          )}
+        </Card>
+      )}
+
       <div role="tablist" className="mb-4 flex gap-1 border-b border-line">
         {VIEWS.map(([k, label]) => (
           <Link key={k} role="tab" aria-selected={view === k} href={`${here}?view=${k}`}
@@ -188,6 +218,10 @@ export default async function ScheduleReview({ params, searchParams }: { params:
       </div>
 
       {view === "people" && (() => {
+        const backupBy = new Map<string, Map<number, (typeof backupRows)[number]>>();
+        for (const b of backupRows) if (b.participantId) {
+          const m = backupBy.get(b.participantId) ?? new Map(); backupBy.set(b.participantId, m); m.set(dayOf(b.dutyDate), b);
+        }
         const mine = new Map<string, Map<number, typeof rows>>();
         for (const r of inRange) if (r.participantId) {
           const m = mine.get(r.participantId) ?? new Map(); mine.set(r.participantId, m);
@@ -203,6 +237,7 @@ export default async function ScheduleReview({ params, searchParams }: { params:
                     <th className="sticky left-0 z-10 min-w-36 border-b border-line bg-white px-3 py-1 text-left text-xs font-semibold uppercase tracking-wide text-muted">Participant</th>
                     <th className={cn(thDay, "px-2")}>Shifts</th>
                     <th className={cn(thDay, "px-1.5")}>Nights</th>
+                    {backupRows.length > 0 && <th className={cn(thDay, "px-1.5")} title="Backup (on call) days">Backup</th>}
                     {days.map((d, i) => (
                       <th key={i} title={academicDays.get(i)?.join("\n")} className={cn(thDay, "min-w-[33px]", dow(d) >= 5 && "bg-slate-100", academicDays.has(i) && "bg-sky-100")}>{DOW[dow(d)].slice(0, 2)}<br />{d.getUTCDate()}</th>
                     ))}
@@ -214,7 +249,7 @@ export default async function ScheduleReview({ params, searchParams }: { params:
                     const count = [...(mine.get(pid)?.values() ?? [])].reduce((a, x) => a + x.length, 0);
                     const nights = [...(mine.get(pid)?.values() ?? [])].flat().filter((r) => catById.get(r.categoryId)?.isNight).length;
                     const outside = sn && (count < sn.shifts_min || count > sn.shifts_max);
-                    const header = p.role.name !== role ? [<tr key={"role" + p.role.id}><td colSpan={n + 3} className="sticky left-0 border-b border-line bg-surface px-3 py-1 text-xs font-semibold text-muted">{p.role.name}</td></tr>] : [];
+                    const header = p.role.name !== role ? [<tr key={"role" + p.role.id}><td colSpan={n + 3 + (backupRows.length ? 1 : 0)} className="sticky left-0 border-b border-line bg-surface px-3 py-1 text-xs font-semibold text-muted">{p.role.name}</td></tr>] : [];
                     role = p.role.name;
                     return [...header,
                       <tr key={pid} data-person={pid}>
@@ -223,6 +258,7 @@ export default async function ScheduleReview({ params, searchParams }: { params:
                           {count}{sn ? <span className="text-[11px] text-muted"> /{sn.shifts_min === sn.shifts_max ? sn.shifts_max : `${sn.shifts_min}–${sn.shifts_max}`}</span> : null}
                         </td>
                         <td className="border-b border-l border-line px-2 py-1 text-center tabular-nums">{nights || "·"}</td>
+                        {backupRows.length > 0 && <td className="border-b border-l border-line px-2 py-1 text-center tabular-nums">{backupBy.get(pid)?.size || "·"}</td>}
                         {days.map((d, i) => {
                           const x = mine.get(pid)?.get(i) ?? [];
                           const base = cn("border-b border-l border-line px-0 py-1 text-center text-[10.5px] leading-4", dow(d) >= 5 && "bg-slate-50");
@@ -237,6 +273,8 @@ export default async function ScheduleReview({ params, searchParams }: { params:
                               </td>
                             );
                           }
+                          const bu = backupBy.get(pid)?.get(i);
+                          if (bu) return <td key={i} title={`${bu.name} (on call) ${span(bu.startsAt, bu.endsAt)}`} data-backup={bu.name} className={cn(base, "font-semibold text-violet-800")} style={{ background: "repeating-linear-gradient(45deg, #ede9fe, #ede9fe 3px, #f5f3ff 3px, #f5f3ff 6px)" }}>BU</td>;
                           if (sn?.vacation?.includes(i)) return <td key={i} title="Vacation" className={cn(base, "bg-slate-200 text-slate-600")}>VAC</td>;
                           if (sn?.mandatory_off?.includes(i)) return <td key={i} title="Not available (not assigned that day, or a required day off)" className={cn(base, "bg-slate-100 text-slate-400")}>off</td>;
                           if (sn?.requests_off && String(i) in sn.requests_off) return <td key={i} title="Request off: granted" className={cn(base, "text-emerald-700")}>req</td>;
@@ -255,7 +293,7 @@ export default async function ScheduleReview({ params, searchParams }: { params:
             </div>
             <p className="mt-2 text-xs text-muted">
               A night that starts after midnight is shown on the day it belongs to (the evening before). VAC = vacation · off = not available that day · req = a request off that was granted ·
-              a red outline = working on a day they asked to have off · blue column = academic time that day. Hover a cell for the details.
+              a red outline = working on a day they asked to have off · blue column = academic time that day{backupRows.length ? " · BU = on backup (on call; not a worked shift)" : ""}. Hover a cell for the details.
             </p>
           </>
         );
@@ -323,6 +361,27 @@ export default async function ScheduleReview({ params, searchParams }: { params:
               </Card>
             )}
           </section>
+
+          {rep?.backup && (
+            <section data-testid="backup-section">
+              <h2 className="mb-1 text-base font-semibold">Backup (on call)</h2>
+              <p className="mb-2 max-w-3xl text-sm text-muted">
+                Chosen after the clinical schedule was final, so backup never changes who works which shift. Nobody is on backup while on a shift, on vacation or required time off,
+                or during their weekly 24 hours off. Backup days are spread as evenly as the rules allow ({Object.values(rep.backup.per_resident as Record<string, number>).length
+                  ? `${Math.min(...Object.values(rep.backup.per_resident as Record<string, number>))} to ${Math.max(...Object.values(rep.backup.per_resident as Record<string, number>))} per person` : "nobody"}).
+              </p>
+              {(rep.backup.open as Any[]).length === 0 ? <p className="text-sm text-emerald-700">Every backup day is covered.</p> : (
+                <Card className="divide-y divide-line" data-testid="backup-open">
+                  {(rep.backup.open as Any[]).map((o, i) => (
+                    <div key={i} className="px-3 py-2 text-sm">
+                      <span className="font-medium">{o.name}</span> · {fmtDate(addDays(iv.startDate, o.day))} · <span className="text-red-700">nobody on backup</span>
+                      <div className="mt-0.5 text-xs text-muted">Why: {(o.reasons as Any[]).map((q) => `${q.count} ${q.reason}${q.count <= 3 ? ` (${q.names.join(", ")})` : ""}`).join("; ")}</div>
+                    </div>
+                  ))}
+                </Card>
+              )}
+            </section>
+          )}
 
           {rep?.goals && (
             <section>

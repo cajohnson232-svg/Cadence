@@ -10,9 +10,9 @@ import { friendlyDbError, parseForm, toData, type FormState, type Row } from "@/
 import { dow, DOW, parseYmd, toMinutes } from "@/lib/util";
 import { validateDraft } from "@/lib/rules";
 import type { RuleDraft, RuleFormState } from "@/lib/rule-types";
-import { getRuleInterpreter, type Proposal } from "@/lib/rule-interpreter";
+import { interpretWithFallback, type Proposal } from "@/lib/rule-interpreter";
 import { BUDGETS, cancelRun, startRun, type Budget } from "@/lib/engine";
-import { publish, unpublish } from "@/lib/schedules";
+import { publish, publishChecks, unpublish } from "@/lib/schedules";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const model = (name: string) => (db as any)[name];
@@ -158,7 +158,7 @@ export async function addOccurrence(academicDayId: string, fd: FormData) {
   const path = `/academic-days/${academicDayId}`;
   const a = await db.academicDay.findFirst({ where: { id: academicDayId, programId: s.programId } });
   if (!a) redirect("/academic-days");
-  if (!str(fd, "date")) back(path, "error", "Pick the date of the session that differs.");
+  if (!str(fd, "date")) back(path, "error", "Pick the date.");
   const date = parseYmd(str(fd, "date"));
   if (dow(date) !== a.dayOfWeek) back(path, "error", `That date is a ${DOW[dow(date)]}; this series runs on ${DOW[a.dayOfWeek]}s.`);
   try {
@@ -167,7 +167,7 @@ export async function addOccurrence(academicDayId: string, fd: FormData) {
         overlapPolicy: (str(fd, "policy") || null) as "BLOCKED" | "EXCUSED" | null },
     });
   } catch (e) { back(path, "error", friendlyDbError(e)); }
-  back(path, "notice", "Change saved for that week.");
+  back(path, "notice", fd.get("cancelled") === "on" ? `Saved: no session on ${DOW[dow(date)]} ${str(fd, "date")}.` : "Change saved for that week.");
 }
 export async function addException(academicDayId: string, fd: FormData) {
   const s = await requireAdmin();
@@ -277,15 +277,14 @@ export async function interpretText(text: string): Promise<{ proposal: Proposal;
     db.participant.findMany({ where: { programId: s.programId, archivedAt: null } }), db.role.findMany({ where: { programId: s.programId, archivedAt: null } }),
     db.institution.findMany({ where: { programId: s.programId, archivedAt: null } }), db.shiftCategory.findMany({ where: { programId: s.programId } }),
   ]);
-  const it = getRuleInterpreter();
   try {
-    const proposal = await it.interpret(text, {
+    const { proposal, interpreter, fellBack } = await interpretWithFallback(text.slice(0, 2000), {
       today: new Date().toISOString().slice(0, 10),
       participants: people.map((p) => ({ id: p.id, name: `${p.firstName} ${p.lastName}`, lastName: p.lastName, roleId: p.roleId })),
       roles: roles.map((r) => ({ id: r.id, name: r.name })), institutions: inst.map((i) => ({ id: i.id, name: i.name, shortCode: i.shortCode })),
       categories: cats.map((c) => ({ id: c.id, name: c.name, isNight: c.isNight })),
     });
-    return { proposal, interpreter: it.name };
+    return { proposal, interpreter: fellBack ? `${interpreter}, because ${fellBack}` : interpreter };
   } catch (e) {
     return { error: "The interpreter failed: " + String((e as Error).message).slice(0, 200) };
   }
@@ -396,4 +395,20 @@ export async function discardSchedule(sid: string) {
   await audit(s, sid, "discard", { label: sch.label });
   revalidatePath("/", "layout");
   go(hub, { tab: "schedule", notice: `${sch.label ?? "Schedule"} was discarded.` });
+}
+
+/** Optimize: a new engine run that starts from this schedule. Saved as a new draft; this one is untouched. */
+export async function optimizeSchedule(sid: string, fd: FormData) {
+  const s = await requireAdmin();
+  const c = await publishChecks(sid, s.programId);
+  if (!c) return back("/intervals", "error", "That schedule does not exist.");
+  const here = `/intervals/${c.sch.intervalId}/schedules/${sid}`;
+  if (c.sch.runStatus !== "DONE" || c.violations.length) return back(here, "error", "Only a finished schedule that breaks no hard rule can be optimized.");
+  if (c.stale) return back(here, "error", "The inputs have changed since this schedule was made. Generate a new schedule instead.");
+  const key = str(fd, "budget");
+  const r = await startRun(c.sch.intervalId, s.userId, (key in BUDGETS ? key : "standard") as Budget, { scheduleId: sid, label: (c.sch.label ?? "the schedule").replace(/ \(optimized from .*\)$/, "") });
+  revalidatePath("/", "layout");
+  if (!r.ok) return back(here, "error", r.error);
+  await audit(s, r.scheduleId, "optimize", { from: sid, budget: key || "standard" });
+  go(`/intervals/${c.sch.intervalId}`, { tab: "schedule" });
 }

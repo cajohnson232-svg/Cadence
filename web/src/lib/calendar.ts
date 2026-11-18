@@ -21,7 +21,7 @@ export async function calendarFor(token: string): Promise<{ ics: string; events:
   let events = 0;
   for (const s of shifts) {
     out.push("BEGIN:VEVENT", `UID:shift-${s.id}@cadence`, `DTSTAMP:${now}`, `DTSTART;TZID=${s.institution.timezone}:${stamp(s.startsAt)}`,
-      `DTEND;TZID=${s.institution.timezone}:${stamp(s.endsAt)}`, `SUMMARY:${esc(s.name)}`, `LOCATION:${esc(s.institution.name)}`, "END:VEVENT");
+      `DTEND;TZID=${s.institution.timezone}:${stamp(s.endsAt)}`, `SUMMARY:${esc(s.backup ? `${s.name} (on call)` : s.name)}`, ...(s.backup ? ["CATEGORIES:Backup"] : []), `LOCATION:${esc(s.institution.name)}`, "END:VEVENT");
     events++;
   }
   if (published.length) {

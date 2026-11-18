@@ -1,6 +1,7 @@
 // Every simple admin screen is described here once: its fields, its list columns and its
 // validation. The list page, the form and the save/delete actions are generic (see crud.ts).
 import Link from "next/link";
+import { BackupRulesSection } from "@/components/backup-rules-section";
 import { db } from "./db";
 import type { Ctx, Entity, Opt, Row, Values } from "./crud";
 import { DOW, dayDiff, fmtDate, fmtHours, fmtRange, overlaps, shiftTimes, hhmm } from "./util";
@@ -124,9 +125,10 @@ const list: Entity[] = [
   },
   {
     slug: "shifts", model: "shift", title: "Shifts", singular: "shift", archivable: true, hasActive: true,
-    description: "Reusable shift templates. The end time is worked out from the start and the length, so shifts that cross midnight just work.",
+    description: "Reusable shift templates. The end time is worked out from the start and the length, so shifts that cross midnight just work. A backup shift is someone on call each day; its rules are set in plain words on its page.",
     fields: [
       { name: "name", label: "Name", type: "text", required: true },
+      { name: "isBackup", label: "This is a backup shift (one person on call every day)", type: "checkbox", help: "After saving, describe its rules on this page. By default backup is on call only and does not count toward shifts or hours" },
       { name: "institutionId", label: "Institution", type: "select", required: true, options: opts.institutions },
       { name: "areaId", label: "Area", type: "select", options: opts.areas, help: "Optional. Must belong to the institution" },
       { name: "categoryId", label: "Category", type: "select", required: true, options: opts.categories },
@@ -145,7 +147,7 @@ const list: Entity[] = [
       { name: "category", label: "Category", options: opts.categories, where: (v) => ({ categoryId: v }) },
     ],
     columns: [
-      { label: "Name", cell: (r) => r.name }, { label: "Where", cell: (r) => `${r.institution.shortCode}${r.area ? " · " + r.area.shortCode : ""}` },
+      { label: "Name", cell: (r) => <>{r.name}{r.isBackup && <Badge tone="blue" className="ml-2">Backup</Badge>}</> }, { label: "Where", cell: (r) => `${r.institution.shortCode}${r.area ? " · " + r.area.shortCode : ""}` },
       { label: "Category", cell: (r) => r.category.name }, { label: "Time", cell: (r) => shiftTimes(r.startMinute, r.durationMinutes) },
       { label: "Length", cell: (r) => fmtHours(r.durationMinutes) },
       { label: "Days", cell: (r) => (r.daysOfWeek.length === 7 ? "Every day" : r.daysOfWeek.map((d: number) => DOW[d]).join(" ")) },
@@ -162,7 +164,7 @@ const list: Entity[] = [
       }
       return { errors };
     },
-    extra: async (row, ctx) => <EligibilitySection side="shift" id={row.id} programId={ctx.programId} />,
+    extra: async (row, ctx) => <>{row.isBackup && <BackupRulesSection shiftId={row.id} programId={ctx.programId} />}<EligibilitySection side="shift" id={row.id} programId={ctx.programId} /></>,
   },
 
   // ──────────────────────────── Schedule ────────────────────────────
@@ -196,48 +198,6 @@ const list: Entity[] = [
     },
   },
   {
-    slug: "assignments", model: "assignment", title: "Assignments", singular: "assignment",
-    description: "Block-schedule assignments: a participant's contract for a date range. A participant's assignments cannot overlap.",
-    fields: [
-      { name: "participantId", label: "Participant", type: "select", required: true, options: opts.participants },
-      { name: "startDate", label: "Start date", type: "date", required: true },
-      { name: "endDate", label: "End date", type: "date", required: true },
-      { name: "minShifts", label: "Min shifts", type: "number", min: 0, help: "Blank = the role's default" },
-      { name: "maxShifts", label: "Max shifts", type: "number", min: 0, help: "Set equal to the minimum for an exact count" },
-      { name: "institutions", label: "Institutions", type: "multi", options: opts.institutions, join: { relation: "institutions", key: "institutionId" }, required: true },
-      { name: "shifts", label: "Eligible shift types", type: "multi", options: opts.shifts, join: { relation: "shifts", key: "shiftId" }, help: "Leave all unticked to allow every shift the role is eligible for" },
-      { name: "notes", label: "Notes", type: "textarea" },
-    ],
-    include: { participant: { include: { role: true } }, institutions: { include: { institution: true } }, shifts: true },
-    orderBy: [{ startDate: "desc" }, { participant: { lastName: "asc" } }], search: ["participant.lastName", "participant.firstName", "notes"],
-    filters: [{ name: "institution", label: "Institution", options: opts.institutions, where: (v) => ({ institutions: { some: { institutionId: v } } }) }],
-    columns: [
-      { label: "Participant", cell: (r) => `${person(r.participant)} (${r.participant.role.name})` }, { label: "Dates", cell: (r) => fmtRange(r.startDate, r.endDate) },
-      { label: "Shifts", cell: (r) => (r.minShifts === r.maxShifts ? r.minShifts : `${r.minShifts}–${r.maxShifts}`) },
-      { label: "Institutions", cell: (r) => r.institutions.map((i: Row) => i.institution.shortCode).join(", ") },
-      { label: "Eligible shifts", cell: (r) => (r.shifts.length ? `${r.shifts.length} listed` : "All for role") },
-    ],
-    prepare: async (v) => {
-      if (v.participantId && (v.minShifts == null || v.maxShifts == null)) {
-        const p = await db.participant.findUnique({ where: { id: v.participantId }, include: { role: true } });
-        v.minShifts ??= p?.role.defaultMinShifts ?? v.maxShifts ?? null;
-        v.maxShifts ??= p?.role.defaultMaxShifts ?? v.minShifts ?? null;
-      }
-    },
-    validate: async (v, _ctx, id) => {
-      const errors: Record<string, string> = {};
-      endAfterStart(v, errors);
-      if (v.minShifts == null) errors.minShifts = "The role has no default; enter a number";
-      else if (v.maxShifts < v.minShifts) errors.maxShifts = "Must be at least the minimum";
-      if (v.participantId && v.startDate && v.endDate && !errors.endDate) {
-        const clash = (await db.assignment.findMany({ where: { participantId: v.participantId, ...(id ? { id: { not: id } } : {}) } }))
-          .find((o) => overlaps(o.startDate, o.endDate, v.startDate, v.endDate));
-        if (clash) errors.startDate = `Overlaps this participant's assignment ${fmtRange(clash.startDate, clash.endDate)}`;
-      }
-      return { errors };
-    },
-  },
-  {
     slug: "special-days", model: "specialStaffingDay", title: "Special staffing days", singular: "special staffing day",
     description: "Date-specific overrides of the normal shifts at one institution: holidays, conferences, events.",
     fields: [
@@ -258,13 +218,13 @@ const list: Entity[] = [
       const clash = v.institutionId && v.date ? await db.specialStaffingDay.findFirst({ where: { institutionId: v.institutionId, date: v.date, ...(id ? { id: { not: id } } : {}) } }) : null;
       return errIf(clash, "date", `${clash?.name} is already set up for that institution and date`);
     },
-    extra: async (row, ctx) => <SpecialLinesSection day={row} programId={ctx.programId} />,
   },
 
   // ───────────────────── Time off and preferences ─────────────────────
   {
     slug: "academic-days", model: "academicDay", title: "Academic days", singular: "academic day", archivable: true, hasActive: true,
-    description: "Recurring protected academic time. It is not a shift, but it appears on everyone's schedule. You decide what happens to a shift that overlaps it.",
+    where: { participantId: null }, fixed: { participantId: null },
+    description: "Recurring protected academic time for the program. It is not a shift, but it appears on everyone's schedule. Dates it does not happen (holidays) are listed on each academic day's page. One person's own academic time is set on their page under Assignments.",
     fields: [
       { name: "name", label: "Name", type: "text", required: true, placeholder: "Wednesday conference" },
       { name: "dayOfWeek", label: "Day of week", type: "select", numeric: true, required: true, options: DOW.map((d, i) => ({ value: String(i), label: d })) },
@@ -272,9 +232,9 @@ const list: Entity[] = [
       { name: "durationMinutes", label: "Usual length (hours)", type: "hours", required: true, min: 0.25, max: 24, step: 0.25 },
       { name: "startDate", label: "First date", type: "date", help: "Blank = no start limit" },
       { name: "endDate", label: "Last date", type: "date", help: "Blank = ongoing" },
-      { name: "overlapPolicy", label: "If a shift overlaps the session", type: "select", required: true, default: "BLOCKED", options: [
-        { value: "BLOCKED", label: "Blocked: attendees cannot be given that shift" },
-        { value: "EXCUSED", label: "Excused: the shift is staffed and whoever works it is excused" }] },
+      { name: "overlapPolicy", label: "If a shift overlaps this session, the individual cannot work it", type: "select", required: true, default: "BLOCKED", options: [
+        { value: "BLOCKED", label: "Yes: attendees are never given an overlapping shift (a hard rule)" },
+        { value: "EXCUSED", label: "No: the shift is staffed and whoever works it misses the session" }] },
       { name: "protectBeforeMinutes", label: "Protected time before (hours)", type: "hours", min: 0, max: 24, step: 0.25, default: "0", required: true },
       { name: "protectAfterMinutes", label: "Protected time after (hours)", type: "hours", min: 0, max: 24, step: 0.25, default: "0", required: true },
       { name: "roles", label: "Who attends", type: "multi", options: opts.roles, join: { relation: "roles", key: "roleId" }, help: "None ticked = every role" },
@@ -285,8 +245,8 @@ const list: Entity[] = [
       { label: "Name", cell: (r) => r.name }, { label: "When", cell: (r) => `${DOW[r.dayOfWeek]} ${hhmm(r.startMinute)}–${hhmm(r.startMinute + r.durationMinutes)}` },
       { label: "Dates", cell: (r) => (r.startDate || r.endDate ? `${r.startDate ? fmtDate(r.startDate) : "…"} to ${r.endDate ? fmtDate(r.endDate) : "ongoing"}` : "Ongoing") },
       { label: "Who", cell: (r) => r.roles.map((x: Row) => x.role.name).join(", ") || "Everyone" },
-      { label: "Overlapping shifts", cell: (r) => <Badge tone={r.overlapPolicy === "BLOCKED" ? "amber" : "blue"}>{title(r.overlapPolicy)}</Badge> },
-      { label: "Changes", cell: (r) => `${r._count.occurrences} week(s), ${r._count.exceptions} person exception(s)` }, { label: "Status", cell: activeBadge },
+      { label: "Can't work an overlapping shift", cell: (r) => <Badge tone={r.overlapPolicy === "BLOCKED" ? "amber" : "blue"}>{r.overlapPolicy === "BLOCKED" ? "Yes" : "No"}</Badge> },
+      { label: "Changes", cell: (r) => `${r._count.occurrences} date(s), ${r._count.exceptions} person exception(s)` }, { label: "Status", cell: activeBadge },
     ],
     validate: async (v) => { const errors: Record<string, string> = {}; endAfterStart(v, errors); return { errors }; },
     extra: async (row, ctx) => <AcademicExtras academicDayId={row.id} programId={ctx.programId} />,
@@ -395,23 +355,6 @@ const list: Entity[] = [
       }
       return { errors };
     },
-  },
-  {
-    slug: "adjustments", model: "shiftAdjustment", title: "Adjustments", singular: "adjustment", stamp: true,
-    description: "Shift reductions and penalties: move a participant's required shift count for an interval up or down, with a reason.",
-    fields: [
-      { name: "participantId", label: "Participant", type: "select", required: true, options: opts.participants },
-      { name: "intervalId", label: "Interval", type: "select", required: true, options: opts.intervals },
-      { name: "delta", label: "Change in shifts", type: "number", required: true, min: -31, max: 31, help: "-2 for chief duties, +1 for a make-up shift" },
-      { name: "reason", label: "Reason", type: "text", required: true },
-    ],
-    include: { participant: true, interval: true }, orderBy: { createdAt: "desc" }, search: ["participant.lastName", "participant.firstName", "reason"],
-    filters: [{ name: "interval", label: "Interval", options: opts.intervals, where: (v) => ({ intervalId: v }) }],
-    columns: [
-      { label: "Participant", cell: (r) => person(r.participant) }, { label: "Interval", cell: (r) => <Link className="text-brand hover:underline" href={`/intervals/${r.intervalId}?tab=adjustments`}>{r.interval.name}</Link> },
-      { label: "Change", cell: (r) => <span className={r.delta < 0 ? "text-emerald-700" : "text-amber-700"}>{r.delta > 0 ? "+" : ""}{r.delta} shift(s)</span> }, { label: "Reason", cell: (r) => r.reason },
-    ],
-    validate: async (v) => errIf(v.delta === 0, "delta", "Enter a change other than 0"),
   },
 ];
 

@@ -60,3 +60,9 @@ ALTER TABLE "Rule" ADD CONSTRAINT "Rule_dates" CHECK ("activeFrom" IS NULL OR "a
 
 -- An email address is stored in lower case, so "Pat@x.org" and "pat@x.org" cannot be two accounts.
 ALTER TABLE "User" ADD CONSTRAINT "User_email_lowercase" CHECK (email = lower(email));
+
+-- 17 Nov 2026: split between institutions, required time off windows, entered prior-block shifts.
+ALTER TABLE "AssignmentInstitution" ADD CONSTRAINT "AssignmentInstitution_share_range" CHECK ("sharePercent" IS NULL OR ("sharePercent" BETWEEN 0 AND 100));
+ALTER TABLE "AssignmentInstitution" ADD CONSTRAINT "AssignmentInstitution_dates_order" CHECK ("startDate" IS NULL OR "endDate" IS NULL OR "startDate" <= "endDate");
+ALTER TABLE "TimeOff" ADD CONSTRAINT "TimeOff_window_range" CHECK (("startMinute" IS NULL) = ("endMinute" IS NULL) AND ("startMinute" IS NULL OR ("startMinute" BETWEEN 0 AND 1439 AND "endMinute" BETWEEN 0 AND 1440 AND "startMinute" <> "endMinute")));
+ALTER TABLE "PriorShift" ADD CONSTRAINT "PriorShift_times" CHECK ("startMinute" BETWEEN 0 AND 1439 AND "durationMinutes" BETWEEN 1 AND 2880);
