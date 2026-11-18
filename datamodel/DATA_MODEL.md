@@ -1,10 +1,10 @@
 # Cadence data model
 
-The schema is `schema.prisma` (28 tables). It was reviewed on 13-14 Nov 2026 and the admin screens are now built on it.
+The schema is `schema.prisma` (29 tables). It was reviewed on 13-14 Nov 2026 and the admin screens are now built on it.
 
 **Stack** (your spec asked for the simplest conventional option): Next.js + TypeScript, PostgreSQL + Prisma,
-Tailwind with shadcn-style components, Zod for form validation. Sign-in is a development stub for now (Auth.js is
-the intended replacement). The scheduling engine stays a separate Python service.
+Tailwind with shadcn-style components, Zod for form validation. Sign-in is built into the app (email and password,
+by invitation). The scheduling engine stays a separate Python program.
 
 **How far it has been tested.** The tables were created on a real PostgreSQL 16 server, loaded with a made-up
 program that uses every table, compiled into engine input, scheduled (265 shifts, 18 people, zero hard-rule
@@ -46,8 +46,8 @@ Your 13 entities are all here. **Bold** tables are ones I added.
    called access levels to avoid two meanings of "role".
 2. **Shift category is a table, not a fixed list.** The engine needs to know the rotation order and which shifts
    are nights; you define that per program instead of it being hard-coded.
-3. **Required shift count is stored as a minimum and a maximum** on the assignment, pre-filled from the role. The
-   engine needs a range; set both the same for an exact number. Adjustments move both.
+3. **Required shift count is a minimum and a maximum.** Since 17 Nov 2026 it comes from the role (the
+   assignment's own fields stay empty); set both the same for an exact number. Adjustments move both.
 4. **Vacation, requests off and first/last day off share one table** with a "kind". Your spec asked for the presets
    to be request types rather than separate systems; putting vacation there too gives one conversion to rules.
    The screens can still be separate.
@@ -98,7 +98,7 @@ Nothing is silently dropped.
 
 ## Compiled rules for an interval
 
-`compile_interval.py` produces, for one interval, a single uniform list: every active rule, every vacation,
+The compile step (`web/src/lib/compile.ts` in the app; originally `compile_interval.py`) produces, for one interval, a single uniform list: every active rule, every vacation,
 request, preset, academic series, special staffing day and contract, each marked **enforced**, **stored only**,
 **needs review** or **not included (pending / denied)**. This is the data for the read-only "Compiled rules for
 this interval" view. For the demo block it has 53 entries, for example:
