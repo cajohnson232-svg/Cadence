@@ -111,7 +111,8 @@ export async function deleteArea(id: string) {
 export async function saveEligibility(side: "shift" | "role", id: string, fd: FormData) {
   const s = await requireAdmin();
   const [shifts, roles] = await Promise.all([
-    db.shift.findMany({ where: { programId: s.programId } }), db.role.findMany({ where: { programId: s.programId } })]);
+    db.shift.findMany({ where: { programId: s.programId, archivedAt: null } }), db.role.findMany({ where: { programId: s.programId, archivedAt: null } })]);
+  // only the rows the form shows (archived roles and shifts are not listed, so they keep what they had)
   const pairs = side === "shift" ? roles.map((r) => ({ shiftId: id, roleId: r.id, key: r.id })) : shifts.map((x) => ({ shiftId: x.id, roleId: id, key: x.id }));
   for (const p of pairs) {
     const eligible = fd.get(`elig_${p.key}`) === "on";

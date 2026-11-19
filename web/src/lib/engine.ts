@@ -22,6 +22,7 @@ import { join, resolve } from "node:path";
 import { db } from "./db";
 import { compileInterval } from "./compile";
 import { addDays } from "./util";
+import { categoryKeys, invert, siteKeys } from "./engine-keys";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Any = any;
@@ -56,6 +57,38 @@ export function fingerprint(config: unknown): string {
 
 export type StartResult = { ok: true; scheduleId: string } | { ok: false; error: string };
 
+/** Independent check, before every run: for every person and every shift template the engine will see, is the person
+ *  allowed on it exactly when the role grid and the person's institutions say so? Written from the database, not from
+ *  the compile step, so a slip in compiling can never reach the engine. Returns the pairs that differ. */
+export async function eligibilityMismatches(intervalId: string, cfg: Any): Promise<string[]> {
+  const iv = await db.interval.findUniqueOrThrow({ where: { id: intervalId } });
+  const [shifts, grid, asg, people] = await Promise.all([
+    db.shift.findMany({ where: { programId: iv.programId } }),
+    db.shiftRole.findMany({ where: { shift: { programId: iv.programId } } }),
+    db.assignment.findMany({ where: { participant: { programId: iv.programId }, startDate: { lte: iv.endDate }, endDate: { gte: iv.startDate } }, include: { institutions: true } }),
+    db.participant.findMany({ where: { programId: iv.programId } }),
+  ]);
+  const instOf = new Map(shifts.map((x) => [x.id, x.institutionId])), nameOf = new Map(shifts.map((x) => [x.id, x.name]));
+  const g = new Map(grid.map((x) => [x.shiftId + "|" + x.roleId, x.eligible]));
+  const role = new Map(people.map((x) => [x.id, x.roleId])), who = new Map(people.map((x) => [x.id, `${x.firstName} ${x.lastName}`]));
+  const out: string[] = [];
+  for (const r of (cfg.residents ?? []) as Any[]) {
+    const mine = asg.filter((a) => a.participantId === r.id);
+    const places = mine.some((a) => !a.institutions.length) ? null : new Set(mine.flatMap((a) => a.institutions.map((i) => i.institutionId)));
+    for (const t of (cfg.shift_templates ?? []) as Any[]) {
+      const told = r.only_shifts ? r.only_shifts.includes(t.ref) : r.pgy >= (t.min_pgy ?? 1);
+      if (!told) continue;                                             // refusing more than the grid would is never unsafe
+      const inst = instOf.get(t.ref);
+      const ok = !!inst && (g.get(t.ref + "|" + role.get(r.id)) ?? true) && (!places || places.has(inst));
+      if (!ok) out.push(`${who.get(r.id) ?? r.id} on ${nameOf.get(t.ref) ?? t.name}`);
+    }
+  }
+  return [...new Set(out)];
+}
+
+/** Stored with each run's inputs (not part of the fingerprint): which version of the compile step built them. */
+export const COMPILER_VERSION = "2026-11-18b";
+
 export async function startRun(intervalId: string, userId: string | null, budget: Budget | { seconds: number; polish: number },
   from?: { scheduleId: string; label: string }): Promise<StartResult> {
   const b = typeof budget === "string" ? BUDGETS[budget] ?? BUDGETS.standard : budget;
@@ -64,6 +97,8 @@ export async function startRun(intervalId: string, userId: string | null, budget
     return { ok: false, error: `The scheduling engine was not found on this server (looked for run.py in ${dirE}). Set ENGINE_DIR.` };
 
   const c = await compileInterval(intervalId);
+  const wrong = await eligibilityMismatches(intervalId, c.config);
+  if (wrong.length) return { ok: false, error: `Not started: the inputs would let ${wrong.length} person-and-shift pair(s) through that the role grid or the institutions forbid, e.g. ${wrong.slice(0, 3).join("; ")}. Please report this.` };
   const cfg = c.config as Any;
   if (!cfg.residents.length) return { ok: false, error: "Nobody is assigned to this interval yet. Add assignments first." };
   if (!cfg.shift_templates.length) return { ok: false, error: "There are no shifts to fill. Add shifts first." };
@@ -75,7 +110,7 @@ export async function startRun(intervalId: string, userId: string | null, budget
   try {
     sch = await db.schedule.create({
       data: { intervalId, source: "SOLVER", status: "DRAFT", runStatus: "QUEUED", label: from ? `Run ${n + 1} (optimized from ${from.label})` : `Run ${n + 1}`, createdById: userId,
-        inputSnapshot: cfg, inputHash: fingerprint(cfg), timeBudget: b.seconds + b.polish },
+        inputSnapshot: { ...cfg, _compiler: COMPILER_VERSION }, inputHash: fingerprint(cfg), timeBudget: b.seconds + b.polish },
     });
   } catch (e) {
     if ((e as { code?: string }).code === "P2002") return { ok: false, error: "A schedule is already being generated for this interval." };
@@ -193,7 +228,7 @@ async function importResult(sch: Any, result: Any): Promise<string> {
     db.specialStaffingShift.findMany({ where: { day: { programId: pid } }, select: { id: true } }),
     db.participant.findMany({ where: { programId: pid }, select: { id: true } }),
   ]);
-  const inst = new Map(insts.map((i) => [i.shortCode, i.id])), cat = new Map(cats.map((c) => [c.name, c.id]));
+  const inst = invert(siteKeys(insts)), cat = invert(categoryKeys(cats));      // the same unique keys the compile step sent
   const shiftIds = new Set(shifts.map((s) => s.id)), specialIds = new Set(special.map((s) => s.id)), personIds = new Set(people.map((p) => p.id));
   const at = (m: number) => new Date(start.getTime() + m * 60000);
   const rows: Any[] = [];

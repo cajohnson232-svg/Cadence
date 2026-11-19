@@ -15,6 +15,7 @@ import { db } from "./db";
 import { academicSessions } from "./domain";
 import { REQUESTS_PRIORITY, TEMPLATE, engineStatus, ruleText } from "./rule-templates";
 import { addDays, dayDiff, dow, eachDay, hhmm, ymd } from "./util";
+import { categoryKeys, siteKeys } from "./engine-keys";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Any = any;
@@ -44,6 +45,9 @@ export async function compileInterval(intervalId: string) {
   ]);
   const by = <T extends { id: string }>(xs: T[]) => Object.fromEntries(xs.map((x) => [x.id, x])) as Record<string, T>;
   const roles = by(roleList), cats = by(catList), insts = by(instList), areas = by(areaList), people = by(peopleList);
+  // the keys the engine knows institutions and categories by: unique even when short codes or names repeat
+  const siteOf = siteKeys(instList), catOf = categoryKeys(catList);
+  const site = (id: string) => siteOf.get(id) ?? id, cat = (id: string) => catOf.get(id) ?? id;
   const pname = (p: string | null) => (p && people[p] ? `${people[p].firstName} ${people[p].lastName}` : p ?? "");
   const shiftsAll = await db.shift.findMany({ where: { programId: pid } });
   const names: Record<string, string> = {
@@ -83,7 +87,7 @@ export async function compileInterval(intervalId: string) {
   for (const always of ["one_day_off_in_seven", "forward_rotation", "consecutive_days_off", "no_night_before_time_off"])
     if (!live.some((r) => r.template === always)) warn.push(`'${TEMPLATE[always].label}' is not active, but the engine always applies it.`);
   const pairs = live.filter((r) => r.template === "balance_areas" && areas[r.params.area_a] && areas[r.params.area_b]);
-  const podPairs = pairs.map((r) => [insts[areas[r.params.area_a].institutionId].shortCode, areas[r.params.area_a].shortCode, areas[r.params.area_b].shortCode]);
+  const podPairs = pairs.map((r) => [site(areas[r.params.area_a].institutionId), areas[r.params.area_a].shortCode, areas[r.params.area_b].shortCode]);
   if (pairs.length) cfgRules.pod_tolerance_shifts = Math.min(...pairs.map((r) => r.params.tolerance_shifts));
   const order = live.filter((r) => r.level === "SOFT" && r.priority).sort((a, b) => a.priority - b.priority).map((r) => r.template);
   const seen = [...new Set(order)].filter((t) => ENGINE_GOAL_ORDER.includes(t));
@@ -103,7 +107,7 @@ export async function compileInterval(intervalId: string) {
   const template = (s: Any, over: Any = {}) => {
     const g = { ...s, ...Object.fromEntries(Object.entries(over).filter(([, v]) => v !== null && v !== undefined)) };
     return {
-      name: g.name, ref: s.id ?? g.name, site: insts[g.institutionId].shortCode, pod: g.areaId ? areas[g.areaId].shortCode : "", category: cats[g.categoryId].name,
+      name: g.name, ref: s.id ?? g.name, site: site(g.institutionId), pod: g.areaId ? areas[g.areaId].shortCode : "", category: cat(g.categoryId),
       start: hhmm(g.startMinute), hours: g.durationMinutes / 60, headcount: g.minParticipants, max_headcount: Math.max(g.maxParticipants ?? 0, g.minParticipants), min_pgy: s.id ? minLevel(s.id) : 1,
       counts_as_previous_day: !!g.countsAsPreviousDay, weekdays: [...(g.daysOfWeek ?? [])], except_days: [] as number[],
     } as Any;
@@ -163,9 +167,9 @@ export async function compileInterval(intervalId: string) {
       lo += Math.round((aMin ?? 0) * share); hi += Math.round((aMax ?? aMin ?? 0) * share);
       (a.institutions.length ? a.institutions.map((i) => i.institutionId) : instList.map((i) => i.id)).forEach((i) => sites.add(i));
       if (a.institutions.length > 1 && a.institutions.every((i) => i.sharePercent != null))
-        for (const i of a.institutions) shares[insts[i.institutionId].shortCode] = i.sharePercent!;
+        for (const i of a.institutions) shares[site(i.institutionId)] = i.sharePercent!;
       for (const i of a.institutions) {              // only at this institution from / until these dates
-        const code = insts[i.institutionId].shortCode;
+        const code = site(i.institutionId);
         if (i.startDate && i.startDate > start) extra.push({ label: `not at ${code} before ${ymd(i.startDate)}`, sites: [code], to_day: idx(i.startDate) - 1 });
         if (i.endDate && i.endDate < end) extra.push({ label: `not at ${code} after ${ymd(i.endDate)}`, sites: [code], from_day: idx(i.endDate) + 1 });
       }
@@ -179,13 +183,14 @@ export async function compileInterval(intervalId: string) {
     const level = roles[p.roleId].level;
     // the role grid, sent explicitly for every person and every shift (inactive ones too: a special day can copy one).
     // The engine treats it as a hard rule; min_pgy is only a summary used by its capacity pre-check.
-    const allowed = shiftsAll.filter((s) => isElig(s.id, p.roleId)).map((s) => s.id);
+    // ... and only at the institutions this person is assigned to for the interval (by id, so short codes cannot blur it)
+    const allowed = shiftsAll.filter((s) => isElig(s.id, p.roleId) && sites.has(s.institutionId)).map((s) => s.id);
     const res: Any = {
-      id: p.id, name: pname(p.id), pgy: level, shifts_min: lo, shifts_max: hi, sites: [...sites].map((i) => insts[i].shortCode).sort(),
+      id: p.id, name: pname(p.id), pgy: level, shifts_min: lo, shifts_max: hi, sites: [...sites].map((i) => site(i)).sort(),
       vacation: [] as number[], mandatory_off: Array.from({ length: n }, (_, i) => i).filter((i) => !here.has(i)), requests_off: {} as Record<string, number>, unavailable: [...extra] as Any[],
     };
     if (Object.keys(shares).length) res.site_share = shares;
-    if (noNights) res.unavailable.push({ label: "no nights", categories: catList.filter((c) => c.isNight).map((c) => c.name) });
+    if (noNights) res.unavailable.push({ label: "no nights", categories: catList.filter((c) => c.isNight).map((c) => cat(c.id)) });
     res.only_shifts = [...allowed].sort();
     const runCaps = live.filter((r) => r.template === "max_days_in_a_row" && (r.roleId === p.roleId && r.scope === "ROLE" || r.participantId === p.id && r.scope === "PARTICIPANT")).map((r) => r.params.n);
     if (runCaps.length && Math.min(...runCaps) < cfgRules.max_consecutive_days) res.max_consecutive_days = Math.min(...runCaps);
@@ -222,8 +227,8 @@ export async function compileInterval(intervalId: string) {
       if (r.activeTo) u.to_day = idx(r.activeTo);
       if (q.weekdays !== undefined && q.weekdays !== null) u.weekdays = q.weekdays;
       if (q.start) { u.start = q.start; u.hours = q.hours; }
-      if (q.category_ids?.length) u.categories = q.category_ids.map((c: string) => cats[c]?.name ?? c);
-      if (q.institution_ids?.length) u.sites = q.institution_ids.map((i: string) => insts[i]?.shortCode ?? i);
+      if (q.category_ids?.length) u.categories = q.category_ids.map((c: string) => (cats[c] ? cat(c) : c));
+      if (q.institution_ids?.length) u.sites = q.institution_ids.map((i: string) => (insts[i] ? site(i) : i));
       res.unavailable.push(u);
     }
     res.vacation = [...new Set<number>(res.vacation)].sort((a, b) => a - b);
@@ -258,7 +263,7 @@ export async function compileInterval(intervalId: string) {
       if (!ids.has(h.participantId!)) continue;
       const day0 = new Date(Date.UTC(h.startsAt.getUTCFullYear(), h.startsAt.getUTCMonth(), h.startsAt.getUTCDate()));
       history.push({ resident: h.participantId, day: idx(day0), start: h.startsAt.toISOString().slice(11, 16), hours: (h.endsAt.getTime() - h.startsAt.getTime()) / 3600000,
-        category: cats[h.categoryId].name, name: h.name, counts_as_previous_day: h.dutyDate < day0 });
+        category: cat(h.categoryId), name: h.name, counts_as_previous_day: h.dutyDate < day0 });
     }
   } else {
     const entered = await db.priorShift.findMany({ where: { intervalId }, orderBy: [{ date: "asc" }, { startMinute: "asc" }] });
@@ -267,7 +272,7 @@ export async function compileInterval(intervalId: string) {
     for (const h of entered) {
       if (idx(h.date) < -7 || idx(h.date) >= 0) continue;
       if (!ids.has(h.participantId)) { notHere++; continue; }
-      history.push({ resident: h.participantId, day: idx(h.date), start: hhmm(h.startMinute), hours: h.durationMinutes / 60, category: cats[h.categoryId].name, name: h.name });
+      history.push({ resident: h.participantId, day: idx(h.date), start: hhmm(h.startMinute), hours: h.durationMinutes / 60, category: cat(h.categoryId), name: h.name });
     }
     if (entered.length) compiled.push({ origin: "Previous interval", id: intervalId, template: "history", scope: "PROGRAM", appliesTo: "Everyone", level: "HARD", engine: "enforced",
       text: `${history.length} shift(s) entered by hand for the 7 days before the interval` });
@@ -284,15 +289,15 @@ export async function compileInterval(intervalId: string) {
       note: r.not_understood ? `Not understood, not enforced: ${r.not_understood}` : undefined });
     if (r.not_understood) warn.push(`${b.name}: part of its rules could not be turned into rules and is not enforced: "${r.not_understood}"`);
     if (!eligible.length) warn.push(`${b.name}: nobody assigned to this interval is eligible for it. Tick roles in its eligibility grid.`);
-    return { name: b.name, ref: b.id, site: insts[b.institutionId].shortCode, category: cats[b.categoryId].name, start: hhmm(b.startMinute), hours: b.durationMinutes / 60,
+    return { name: b.name, ref: b.id, site: site(b.institutionId), category: cat(b.categoryId), start: hhmm(b.startMinute), hours: b.durationMinutes / 60,
       weekdays: [...b.daysOfWeek], headcount: b.minParticipants, eligible, rules: { max_per_person: r.max_per_person, min_days_between: r.min_days_between,
         rest_before_hours: r.rest_before_hours, rest_after_hours: r.rest_after_hours } };
   });
 
   const config = {
     name: `${iv.name} (${ymd(start)} to ${ymd(end)})`, start_date: ymd(start), n_days: n,
-    category_order: catList.map((c) => c.name), night_categories: catList.filter((c) => c.isNight).map((c) => c.name),
-    balance_groups: Object.fromEntries(catList.map((c) => [c.name, c.balanceGroup || c.name])),
+    category_order: catList.map((c) => cat(c.id)), night_categories: catList.filter((c) => c.isNight).map((c) => cat(c.id)),
+    balance_groups: Object.fromEntries(catList.map((c) => [cat(c.id), c.balanceGroup || cat(c.id)])),
     pod_pairs: podPairs, rules: cfgRules, shift_templates: templates, academic_time: academic, residents, history,
     ...(backup.length ? { backup } : {}),
   };

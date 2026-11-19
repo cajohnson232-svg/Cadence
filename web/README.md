@@ -128,6 +128,13 @@ schedule, so its backup days can differ. A schedule whose inputs have changed si
   example when a grid is changed after the schedule was generated). An extra shift on a special staffing day must say
   which normal shift it is like; that shift's grid decides who can work it. Optimize matches shifts by id, so two
   shifts with the same name and times are never confused.
+  The list sent for each person also leaves out shifts at institutions they are not assigned to for the interval.
+  **Before every run**, the site re-derives from the database, independently of the compile step, who may work each
+  shift (role grid and institutions) and refuses to start the engine if what it is about to send lets anyone through
+  that the grid forbids. **After a run**, the review page also checks institutions and their "only from / until"
+  dates, and for a role-grid problem it says why, from the inputs stored with the run: the run was made by an
+  earlier version of the site; the grid or the person's role changed after it was generated; or the engine was told
+  no and did it anyway (an engine fault).
 * **At most 6 days worked in a row** (a new standard rule, "Max days worked in a row", hard). A day counts when a
   shift belongs to it, so a night counts on the evening it starts; backup (on call) does not count; the previous
   interval's last week does. It can be set per role or person to a smaller number; the tightest applies.
@@ -219,7 +226,8 @@ Everything signs in through the real sign-in form.
     npm run db:reset && node e2e/schedule.cjs          # 50 checks: generate -> review -> publish, with the real engine (about 3 minutes)
     npm run db:reset && node e2e/assignments.cjs       # 56 checks: assignments, academic exceptions, special days, backup, previous interval, optimize (about 3 minutes)
     npm run db:reset && npx tsx tests/engine-check.ts  # 46 checks on the engine runner, including optimize, no browser needed
-    npm run db:reset && npx tsx tests/hard-rules-check.ts  # 19 checks: role grid and 6 days in a row, both solvers and optimize (about 4 minutes)
+    npm run db:reset && npx tsx tests/hard-rules-check.ts  # 25 checks: role grid, institutions and 6 days in a row, both solvers and optimize, the pre-run check, the review page's causes (about 4 minutes)
+    npm run db:reset && npx tsx tests/grid-property-check.ts  # 150 random role grids (with roles sharing levels): what the engine is told equals the grid and institutions, for every person and shift
     npx tsx tests/ai-check.ts                          # 15 checks on the Claude readers against a stand-in API server (and the fallback)
     npm run db:reset && npx tsx tests/accounts-check.ts  # 61 checks on sign-in, links, limits, setup and start over, no browser needed
     npm run db:reset && python tests/verify_stored.py  # the stored schedule passes the independent rule check

@@ -131,6 +131,8 @@ export default async function ScheduleReview({ params, searchParams }: { params:
         <Notice tone="red">
           <p className="font-medium">The independent rule check found {violations.length} hard rule{violations.length === 1 ? "" : "s"} broken. This schedule cannot be published.</p>
           <ul className="mt-1 list-disc pl-5">{violations.slice(0, 20).map((v, i) => <li key={i}>{v}</li>)}</ul>
+          {violations.length > 20 && <p className="mt-1">… and {violations.length - 20} more.</p>}
+          {checks.causes.map((c, i) => <p key={"c" + i} className="mt-2 font-medium" data-testid="grid-cause">{c}</p>)}
         </Notice>
       )}
       {precheck.length > 0 && (
