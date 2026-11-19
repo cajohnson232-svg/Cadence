@@ -207,7 +207,7 @@ plus the academic time they attend. Google, Apple and Outlook can subscribe to i
 | `src/lib/rule-interpreter.ts`, `src/components/assist-panel.tsx` | Plain English -> proposed rule |
 | `src/lib/domain.ts` | Academic sessions, allowance counting, conflict notes |
 | `src/lib/calendar.ts` | The .ics feed |
-| `prisma/migrations/` | `0001_init` (tables), `0002_constraints` (no overlapping assignments or intervals, one published schedule per interval, ...) and `0003_schedule_runs` (engine runs: one at a time per interval, only a finished schedule can be published) and `0004_accounts` (passwords, one-time links, sign-in limits) and `0005_assignments_backup` (assignments per interval, site shares and date windows, required time off, personal academic days, backup shifts, previous-interval shifts; clears old per-assignment counts) |
+| `prisma/migrations/` | `0001_init` (tables), `0002_constraints` (no overlapping assignments or intervals, one published schedule per interval, ...) and `0003_schedule_runs` (engine runs: one at a time per interval, only a finished schedule can be published) and `0004_accounts` (passwords, one-time links, sign-in limits) and `0005_assignments_backup` (assignments per interval, site shares and date windows, required time off, personal academic days, backup shifts, previous-interval shifts; clears old per-assignment counts) and `0006_days_in_a_row` (adds the "Max days worked in a row" rule, 6, to existing programs) |
 
 ## Tests
 
