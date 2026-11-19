@@ -117,9 +117,12 @@ Three screens read plain English: Other Restrictions, a backup shift's rules, an
 changes. Without Claude they use a simple built-in keyword reader that understands common phrasings. With Claude
 they understand far more. Either way you see the result and can edit it before anything is saved.
 
-1. Go to **console.anthropic.com**, sign in or create an account, add a payment method under Billing, and set a
-   monthly spend limit there (Limits) so the cost can never surprise you.
-2. Under **API keys**, create a key. Copy it; it is shown once.
+1. Go to **platform.claude.com** (the Claude Console), sign in or create an account. Usage is paid with prepaid
+   credits: Settings > Billing > **Buy credits** (about $10 lasts a long time). A Claude Max or Team plan includes
+   monthly API credits you can claim by linking the Console organization to the plan. Set a monthly spend limit under
+   Settings > Limits so the cost can never surprise you.
+2. Under Settings > **API keys**, click **Create key**, name it "Cadence", and copy the key (it starts with `sk-ant-`
+   and is shown once).
 3. In Render, open the **cadence** web service > **Environment**. Find `ANTHROPIC_API_KEY` (or add it), paste the
    key as its value, and save. Render restarts the site with it. Do not put the key in GitHub.
 4. Check it: Other Restrictions > type a sentence > Turn into a rule. Under the result it should say "Interpreter: Claude
