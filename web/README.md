@@ -170,6 +170,16 @@ switch for requests, and "Download engine input", which is the JSON the Python e
 * Every run is kept as its own schedule until discarded. Generating, cancelling, publishing, unpublishing and
   discarding are written to the audit log.
 
+**Calendar view** (added 18 Nov 2026). The review page's **Calendar** tab shows the schedule as a month-style grid:
+one box per date (whole weeks, Monday to Sunday), listing every shift that day in start order with the resident on it
+(first initial and last name; hover for full names and times). Shifts with more than one person list everyone; a
+place nobody is on yet shows OPEN in red; backup (on call) is listed last as "Backup". Buttons switch between all
+institutions together (each line marked with its institution's code) and one institution at a time (here: All (LBJ +
+MHH), LBJ only, MHH only). A night is listed on the day it starts (an after-midnight start, on the evening before).
+Program academic days are noted in the corner of the box; personal ones are not. **Printable** opens the calendar on
+a page of its own: this view, or all three views, each on its own landscape page; print it or save it as a PDF from
+the browser's print dialog. The colours match the shift categories in the by-person grid.
+
 **Requests off** (your answers of 14 Nov):
 
 * Counted **per day requested** against the interval's allowance, with a separate high-priority allowance.
@@ -210,6 +220,7 @@ plus the academic time they attend. Google, Apple and Outlook can subscribe to i
 | `src/lib/schedules.ts` | The publishing rules (what blocks it, what needs a tick), publish and unpublish |
 | `src/app/(admin)/intervals/[id]/schedules/[sid]/` | The review page, the run-status address the page polls, and the spreadsheet download |
 | `src/components/run-progress.tsx` | The live progress display |
+| `src/components/schedule-calendar.tsx`, `src/app/print/schedules/[sid]/` | The calendar view, and its printable page |
 | `src/lib/rule-templates.json`, `rule-templates.ts`, `rules.ts`, `src/components/rule-form.tsx` | The rule template library and the one rule form generated from it |
 | `src/lib/rule-interpreter.ts`, `src/components/assist-panel.tsx` | Plain English -> proposed rule |
 | `src/lib/domain.ts` | Academic sessions, allowance counting, conflict notes |
@@ -223,7 +234,7 @@ Everything signs in through the real sign-in form.
     npm run db:reset && npm run build && npm start         # then, in another shell:
     node e2e/smoke.cjs            # every list, edit and new page loads without browser errors
     node e2e/flows.cjs            # 51 checks in a real browser (Playwright): the input screens
-    npm run db:reset && node e2e/schedule.cjs          # 50 checks: generate -> review -> publish, with the real engine (about 3 minutes)
+    npm run db:reset && node e2e/schedule.cjs          # 57 checks: generate -> review (including the calendar views) -> publish, with the real engine (about 3 minutes)
     npm run db:reset && node e2e/assignments.cjs       # 56 checks: assignments, academic exceptions, special days, backup, previous interval, optimize (about 3 minutes)
     npm run db:reset && npx tsx tests/engine-check.ts  # 46 checks on the engine runner, including optimize, no browser needed
     npm run db:reset && npx tsx tests/hard-rules-check.ts  # 25 checks: role grid, institutions and 6 days in a row, both solvers and optimize, the pre-run check, the review page's causes (about 4 minutes)
@@ -256,7 +267,9 @@ confirmed", edit before confirm, and the custom fallback; system rules not delet
 
 `schedule.cjs` covers: the generate panel and its warnings; a run in progress, with a second one refused; cancel;
 the result opening by itself; the summary accounting for every shift; both grids showing each filled shift once;
-vacation kept clear; every person inside their contract range; goals, per-person figures and the spreadsheet;
+vacation kept clear; every person inside their contract range; goals, per-person figures and the spreadsheet; the
+calendar (28 day boxes, every filled shift and backup day named once, each hospital's view holding only its own
+shifts and the two adding up to the combined view, the printable page with all three views);
 residents unable to see drafts, the review page or run status; a schedule flagged after its inputs change and
 publishing refused without the tick; the resident's page and calendar link carrying exactly the published
 shifts; a newer schedule replacing the published one; unpublish; discard; and inputs that cannot be staffed,

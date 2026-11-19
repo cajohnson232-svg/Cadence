@@ -9,8 +9,10 @@ export type Progress = { status: string; phase: string; open: number | null; ela
 
 export function RunProgress({ statusUrl, reviewUrl, initial }: { statusUrl: string; reviewUrl: string; initial: Progress }) {
   const router = useRouter();
-  const [p, setP] = useState({ ...initial, at: Date.now() });
-  const [now, setNow] = useState(Date.now());
+  // one clock reading for the first render, so the server's HTML and the browser's first render agree exactly
+  const [t0] = useState(Date.now);
+  const [p, setP] = useState({ ...initial, at: t0 });
+  const [now, setNow] = useState(t0);
 
   useEffect(() => {
     let stopped = false;
@@ -34,7 +36,7 @@ export function RunProgress({ statusUrl, reviewUrl, initial }: { statusUrl: stri
   }, [statusUrl, reviewUrl, router]);
 
   const elapsed = p.elapsed + Math.max(0, (now - p.at) / 1000);
-  const pct = p.budget ? Math.min(100, (elapsed / p.budget) * 100) : 0;
+  const pct = p.budget ? Math.round(Math.min(100, (elapsed / p.budget) * 100) * 10) / 10 : 0;
   return (
     <div data-testid="run-progress" data-status={p.status}>
       <div className="flex flex-wrap items-baseline justify-between gap-2">

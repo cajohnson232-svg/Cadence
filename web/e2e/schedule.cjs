@@ -13,7 +13,7 @@ const ok = (cond, what) => { if (cond) { pass++; console.log("ok   " + what); } 
   const p = await ctx.newPage();
   const errors = [];
   p.on("pageerror", (e) => errors.push("pageerror: " + e.message));
-  p.on("console", (m) => { if (m.type() === "error") errors.push("console: " + m.text().slice(0, 300)); });
+  p.on("console", (m) => { if (m.type() === "error") errors.push("console at " + p.url() + ": " + m.text().slice(0, 300)); });
   const go = async (path) => { const r = await p.goto(BASE + path); await p.waitForLoadState("networkidle"); return r; };
   const text = () => p.locator("body").innerText();
   const signIn = (name) => require("./sign-in.cjs").signIn(p, BASE, name);
@@ -100,6 +100,30 @@ const ok = (cond, what) => { if (cond) { pass++; console.log("ok   " + what); } 
   ok((await p.getByTestId("people-table").locator("tbody tr").count()) === 18, "per-person figures for all 18");
   ok(/shares no code with the part that builds the schedule/.test(await p.getByTestId("checks").innerText()), "the page says how the schedule was checked");
   await shot("schedule-review-details");
+
+  // calendar: one box per date with every shift and who works it; all institutions, or one at a time
+  await p.getByRole("tab", { name: "Calendar" }).click(); await p.waitForURL(/view=calendar/); await p.waitForLoadState("networkidle");
+  const cal = p.getByTestId("calendar");
+  ok((await cal.locator("td[data-date]").count()) === 28 && (await cal.getAttribute("data-scope")) === "all", "the calendar has a box for each of the 28 days (4 whole weeks, Monday to Sunday)");
+  const named = async () => cal.locator("li [data-person]").count();
+  const all = await named(), openAll = await cal.locator("[data-open]").count();
+  ok(all === 265 + 28 && openAll === 0, `every filled shift and backup day appears once, with the person's name (${all} names)`);
+  const jan4 = await cal.locator('td[data-date="2027-01-04"]').innerText();
+  ok(/Day T/.test(jan4) && /Night GP/.test(jan4) && /LBJ/.test(jan4) && /MHH/.test(jan4), "4 Jan lists both hospitals' shifts, each marked with its institution");
+  const perSite = {};
+  for (const code of ["LBJ", "MHH"]) {
+    await go(await p.getByRole("tab", { name: `${code} only` }).getAttribute("href"));
+    const sites = await cal.locator("li[data-site]").evaluateAll((els) => [...new Set(els.map((e) => e.getAttribute("data-site")))]);
+    perSite[code] = await named();
+    ok(sites.length === 1 && sites[0] === code && perSite[code] > 0, `the ${code} view shows only ${code} shifts (${perSite[code]} names)`);
+  }
+  ok(perSite.LBJ + perSite.MHH === all, "the two hospital views add up to the combined one");
+  await shot("schedule-review-calendar");
+  const printed = await ctx.newPage();
+  await printed.goto(BASE + (await p.getByTestId("print-each").getAttribute("href"))); await printed.waitForLoadState("networkidle");
+  const titles = await printed.getByTestId("print-view").locator("h1").allInnerTexts();
+  ok(titles.length === 3 && /All institutions \(LBJ \+ MHH\)/.test(titles[0]) && /LBJ only/.test(titles[1]) && /MHH only/.test(titles[2]), `the printable page has all three views, each on its own page (${titles.length})`);
+  await printed.close();
   const csv = await (await ctx.request.get(BASE + review + "/csv")).text();
   const lines = csv.trim().split("\r\n");
   ok(lines.length === 1 + 265 + 28 && /^Date,Day,Shift,Type,Institution/.test(csv) && lines.filter((l) => /,Backup/.test(l)).length === 28, "the spreadsheet download has one line per shift plus one per backup day (265 + 28 + header)");

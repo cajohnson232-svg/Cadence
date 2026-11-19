@@ -7,7 +7,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const s = await requireAdmin();
   return (
     <div className="flex min-h-screen">
-      <aside className="w-60 shrink-0 border-r border-line bg-white px-3 py-4">
+      <aside className="w-60 shrink-0 border-r border-line bg-white px-3 py-4 print:hidden">
         <div className="mb-5 px-2.5">
           <div className="text-lg font-semibold tracking-tight text-brand-dark">Cadence</div>
           <div className="text-xs text-muted">{s.programName}</div>

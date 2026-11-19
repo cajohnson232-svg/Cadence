@@ -11,13 +11,14 @@ import { BUDGETS } from "@/lib/engine";
 import { Select } from "@/components/ui/input";
 import { GOALS, categoryColors, fmtDuration, fmtWhen, shortCodes, standing, tint } from "@/lib/schedule-view";
 import { Flash } from "@/components/entity-pages";
+import { ScheduleCalendar, calendarScope } from "@/components/schedule-calendar";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge, Card, Notice, td, th } from "@/components/ui/misc";
 import { DOW, addDays, cn, dayDiff, dow, fmtDate, fmtRange, fmtShort, hhmm, ymd } from "@/lib/util";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Any = any;
-const VIEWS = [["people", "By person"], ["shifts", "By shift"], ["details", "Goals & checks"]] as const;
+const VIEWS = [["people", "By person"], ["shifts", "By shift"], ["calendar", "Calendar"], ["details", "Goals & checks"]] as const;
 const minuteOfDay = (d: Date) => d.getUTCHours() * 60 + d.getUTCMinutes();
 const span = (a: Date, b: Date) => `${hhmm(minuteOfDay(a))}–${hhmm(minuteOfDay(b))}`;
 const g = (n: number) => +n.toFixed(1);
@@ -33,13 +34,14 @@ export default async function ScheduleReview({ params, searchParams }: { params:
   const hub = `/intervals/${id}`, here = `${hub}/schedules/${sid}`;
   if (sch.runStatus === "RUNNING" || sch.runStatus === "QUEUED") redirect(`${hub}?tab=schedule`);
 
-  const [program, rows, cats, everyone, creator, published] = await Promise.all([
+  const [program, rows, cats, everyone, creator, published, instAll] = await Promise.all([
     db.program.findUniqueOrThrow({ where: { id: s.programId } }),
     db.scheduledShift.findMany({ where: { scheduleId: sid, backup: false }, include: { institution: true }, orderBy: [{ startsAt: "asc" }, { name: "asc" }] }),
     db.shiftCategory.findMany({ where: { programId: s.programId } }),
     db.participant.findMany({ where: { programId: s.programId }, include: { role: true } }),
     sch.createdById ? db.user.findUnique({ where: { id: sch.createdById } }) : null,
     db.schedule.findFirst({ where: { intervalId: id, status: "PUBLISHED", id: { not: sid } } }),
+    db.institution.findMany({ where: { programId: s.programId }, orderBy: { shortCode: "asc" } }),
   ]);
   const tz = program.timezone, st = standing(sch);
   const backupRows = await db.scheduledShift.findMany({ where: { scheduleId: sid, backup: true }, orderBy: [{ startsAt: "asc" }, { name: "asc" }] });
@@ -104,6 +106,8 @@ export default async function ScheduleReview({ params, searchParams }: { params:
     .sort((a, b) => byId.get(a)!.role.level - byId.get(b)!.role.level || byId.get(a)!.lastName.localeCompare(byId.get(b)!.lastName) || byId.get(a)!.firstName.localeCompare(byId.get(b)!.firstName));
   const academicDays = new Map<number, string[]>();
   for (const a of (snap?.academic_time ?? []) as Any[]) if (a.day >= 0 && a.day < n) academicDays.set(a.day, [...(academicDays.get(a.day) ?? []), `${a.name} ${a.start} (${a.hours}h)`]);
+  const programAcademic = new Map<number, string[]>();        // the calendar is for everyone: leave out personal academic days
+  for (const a of (snap?.academic_time ?? []) as Any[]) if (a.day >= 0 && a.day < n && !(a.pgy?.length === 1 && a.pgy[0] === -1)) programAcademic.set(a.day, [...(programAcademic.get(a.day) ?? []), `${a.name} ${a.start} (${a.hours}h)`]);
 
   const total = rows.length, openRows = rows.filter((r) => !r.participantId), filled = total - openRows.length;
   const backupOpen = backupRows.filter((r) => !r.participantId).length;
@@ -299,6 +303,40 @@ export default async function ScheduleReview({ params, searchParams }: { params:
             </p>
           </>
         );
+      })()}
+
+      {view === "calendar" && (() => {
+        const used = new Set([...rows, ...backupRows].map((r) => r.institutionId));
+        {
+          const list = instAll.filter((i) => used.has(i.id)).map((i) => ({ id: i.id, shortCode: i.shortCode, name: i.name }));
+          const scope = calendarScope(sp.site, list);
+          const tabs = [{ key: "all", label: list.length > 1 ? `All (${list.map((i) => i.shortCode).join(" + ")})` : "All", title: "Every institution together" },
+            ...(list.length > 1 ? list.map((i) => ({ key: i.id, label: `${i.shortCode} only`, title: i.name })) : [])];
+          return (
+            <>
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                <div className="flex flex-wrap gap-1" role="tablist" aria-label="Institutions" data-testid="calendar-sites">
+                  {tabs.map((t) => (
+                    <Link key={t.key} role="tab" aria-selected={scope.key === t.key} title={t.title} href={`${here}?view=calendar${t.key === "all" ? "" : `&site=${t.key}`}`}
+                      className={cn("rounded-md border px-3 py-1 text-sm", scope.key === t.key ? "border-brand bg-brand/10 font-medium text-brand-dark" : "border-line bg-white text-muted hover:text-ink")}>{t.label}</Link>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <a href={`/print/schedules/${sid}?site=${scope.key}`} target="_blank" rel="noreferrer" className={buttonVariants({ variant: "outline", size: "sm" })} data-testid="print-one">Printable: this view</a>
+                  {list.length > 1 && <a href={`/print/schedules/${sid}?site=each`} target="_blank" rel="noreferrer" className={buttonVariants({ variant: "outline", size: "sm" })} data-testid="print-each">Printable: all {list.length + 1} views</a>}
+                </div>
+              </div>
+              <Card className="p-0">
+                <ScheduleCalendar start={iv.startDate} end={iv.endDate} rows={[...rows, ...backupRows]} people={byId} insts={list} scope={scope}
+                  colors={color} nightCats={new Set(cats.filter((c) => c.isNight).map((c) => c.id))} academic={programAcademic} />
+              </Card>
+              <p className="mt-2 text-xs text-muted">
+                Each box lists that day&apos;s shifts in start order, with who is working them{scope.ids.size > 1 ? "; the small code before a shift is its institution" : ""}. A night is listed on the day it starts
+                (a night that starts after midnight, on the evening before). OPEN = nobody on it yet{backupRows.length ? " · Backup = on call, not a worked shift" : ""}. Hover a line for times and full names.
+              </p>
+            </>
+          );
+        }
       })()}
 
       {view === "shifts" && (() => {
