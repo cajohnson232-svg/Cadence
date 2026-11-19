@@ -198,6 +198,10 @@ scenarios have not been re-run.
   are used, the 0-1 shift goes only to PGY-3s, and with ordinary minimums none is used. Optional places are
   coverage slack in the exact model (0 to maximum minus minimum per shift), offered by the first schedule and the
   swap pass to anyone under their minimum, and given back afterwards by anyone above it.
+* `tests.test_backup_rules` (19 Nov 2026): backup kept off the day after and the day before a night shift and next to
+  vacation; the backup checker catching each of these when broken on purpose; a minimum of 1 per person reached with
+  a maximum of 3 held. (`backup.rules`: `min_per_person` is aimed for, a shortfall costing less than an open day;
+  `not_after_night`, `not_before_night`, `not_next_to_vacation` are hard.)
 * During the test runs the validator rejected none of the moves proposed by the exact solver.
 
 ## Engine

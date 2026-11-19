@@ -211,6 +211,24 @@ const ok = (cond, what) => { if (cond) { pass++; console.log("ok   " + what); } 
   await go("/shifts/s_bk");
   ok(/at most 2[\s\S]*5 days[\s\S]*PGY-3 can take it/.test(await p.getByTestId("backup-summary").innerText()) && !/PGY-2/.test(await p.getByTestId("backup-summary").innerText()), "after saving, the rules and the role grid say PGY-3 only, at most 2, 5 days apart");
   ok(/Backup every day, 07:00 for 24h, 1 person: .*at most 2.*; 5 eligible/.test(await rules("iv_7")), "compiled rules carry the backup line with 5 eligible (the PGY-3s)");
+  // wording the old built-in reader could not read: each sentence is now read, the rules saved and shown
+  await go("/shifts/s_bk");
+  await bk.getByLabel("The rules, in your own words").fill("Seniors cover backup. Nobody should be on backup the day after a night shift, and each senior should have roughly the same number of backup days. Not back to back, and at least 1 each.");
+  await bk.getByRole("button", { name: "Turn into rules" }).click();
+  await p.waitForSelector('[data-testid="backup-reading"]', { timeout: 60000 });
+  const reading = await p.getByTestId("backup-reading").innerText();
+  ok(!/No rule was recognised|did not recognise|Not understood/.test(reading) && /Not the day after a night shift/.test(reading) && /evenly/.test(reading), "everyday wording is read sentence by sentence, nothing left over");
+  ok((await bk.getByLabel("Not the day after a night shift").isChecked()) && (await bk.getByLabel("Fewest backup days per person").inputValue()) === "1"
+    && (await bk.getByLabel("Days between one person's backups").inputValue()) === "1" && (await roles.getByLabel("PGY-3").isChecked()) && !(await roles.getByLabel("PGY-2").isChecked()), "the fields show what was read (seniors = PGY-3, at least 1 each, not back to back, not after a night)");
+  await bk.getByRole("button", { name: "Save backup rules" }).click();
+  await p.waitForFunction(() => /saved/i.test(document.querySelector('[data-testid="backup-rules"] [role="alert"]')?.textContent ?? ""), null, { timeout: 20000 });
+  await go("/shifts/s_bk");
+  ok(/at least 1 per person where possible[\s\S]*not the day after a night shift/.test(await p.getByTestId("backup-summary").innerText()) && (await bk.getByLabel("Not the day after a night shift").isChecked()), "saved, and still there after reloading");
+  // wording nobody can turn into a rule: still saved, with a clear note and the fields to use
+  await bk.getByLabel("The rules, in your own words").fill("Backup person must live within 30 minutes of the hospital.");
+  await bk.getByRole("button", { name: "Turn into rules" }).click();
+  await p.waitForFunction(() => /did not recognise/.test(document.querySelector('[data-testid="backup-reading"]')?.textContent ?? ""), null, { timeout: 60000 });
+  ok(/Set the rules with the fields below/.test(await p.getByTestId("backup-reading").innerText()), "unreadable wording says to use the fields, and saving still works");
 
   // ── how the previous interval ended (Block 6 has nothing published before it) ──
   await go("/intervals/iv_6?tab=schedule");

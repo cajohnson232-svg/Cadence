@@ -52,6 +52,10 @@ class Line:
         self.min_between = int(r.get("min_days_between") or 0)
         self.rest_before = to_min(r.get("rest_before_hours") or 0)
         self.rest_after = to_min(r.get("rest_after_hours") or 0)
+        self.not_after_night = bool(r.get("not_after_night"))          # not the day after a night shift
+        self.not_before_night = bool(r.get("not_before_night"))        # not the day before a night shift
+        self.not_next_to_vacation = bool(r.get("not_next_to_vacation"))  # not the day before vacation starts or after it ends
+        self.min_per_person = int(r["min_per_person"]) if r.get("min_per_person") else 0   # aimed for: everyone eligible gets this many
 
     def runs(self, P, d):
         return d in self.only_days if self.only_days is not None else P.weekday(d) in self.weekdays
@@ -91,6 +95,12 @@ def static_reason(P: Problem, L: Line, r, d, shifts):
     for s in shifts:
         if s.start < b + L.rest_after and a - L.rest_before < s.end:
             return "working a shift then" if (s.start < b and a < s.end) else "not enough rest around a shift"
+    if L.not_after_night and any(P.is_night(s) and s.day == d - 1 for s in shifts):
+        return "the day after a night shift"
+    if L.not_before_night and any(P.is_night(s) and s.day == d + 1 for s in shifts):
+        return "the day before a night shift"
+    if L.not_next_to_vacation and (d - 1 in r.vacation or d + 1 in r.vacation):
+        return "next to vacation"
     return None
 
 
@@ -194,12 +204,24 @@ def assign(P: Problem, assignment, seconds=30.0):
                     row([(y, 1), (i, 1)], 0, 1)
             row([(y, 1) for y in yv], 1, np.inf)
     n += len(ys)
+    lows = []                                   # aimed-for minimum per person: a shortfall costs less than an open day
+    for l in L:
+        if not l.min_per_person:
+            continue
+        for r in R:
+            if l.eligible is not None and r.id not in l.eligible:
+                continue
+            mine_l = [i for i, ll, _, _ in byr.get(r.id, []) if ll is l]
+            row([(i, 1) for i in mine_l] + [(n + len(lows), 1)], l.min_per_person, np.inf)
+            lows.append((l, r))
+    n += len(lows)
     z = n; n += 1                               # most backups for any one person
     for rid, mine in byr.items():
         row([(i, 1) for i, *_ in mine] + [(z, -1)], -np.inf, 0)
     c = np.zeros(n)
     c[nb:nb + no] = 10000.0
     c[z] = 100.0
+    c[z - len(lows):z] = 1000.0
     for i, (l, r, (d, _)) in enumerate(cands):
         c[i] = 0.01 + 3.0 * r.requests_off.get(d, 0)
     data, ri, ci = [], [], []
@@ -208,6 +230,8 @@ def assign(P: Problem, assignment, seconds=30.0):
             ri.append(k); ci.append(v); data.append(a)
     A = sparse.csr_matrix((data, (ri, ci)), shape=(len(rows), n))
     ub = np.ones(n); ub[nb:nb + no] = [l.need for l, _ in days]; ub[z] = P.n_days
+    for j, (l, _) in enumerate(lows):
+        ub[z - len(lows) + j] = l.min_per_person
     res = milp(c, constraints=LinearConstraint(A, lo, hi) if rows else None, integrality=np.ones(n),
                bounds=Bounds(np.zeros(n), ub), options={"time_limit": seconds})
     x = np.round(res.x) if res.x is not None else np.zeros(n)
@@ -229,7 +253,9 @@ def assign(P: Problem, assignment, seconds=30.0):
     load = defaultdict(int)
     for _, r, _ in chosen:
         load[r.id] += 1
-    return {"days": out_days, "open": opens, "per_resident": dict(load), "status": status,
+    below = [{"resident": r.id, "name": r.name, "line": l.name, "has": sum(1 for ll, rr, _ in chosen if ll is l and rr is r), "minimum": l.min_per_person}
+             for l, r in lows if sum(1 for ll, rr, _ in chosen if ll is l and rr is r) < l.min_per_person]
+    return {"days": out_days, "open": opens, "per_resident": dict(load), "status": status, "below_minimum": below,
             "requests_off_used": sum(1 for _, r, d in chosen if d in r.requests_off)}
 
 
@@ -276,6 +302,12 @@ def check(P: Problem, assignment, result):
             for s in shifts:
                 if s.start < b + l.rest_after and a - l.rest_before < s.end:
                     V.append(f"{tag}: overlaps or is too close to the {s.name} shift on {P.label(s.cal)}")
+                if l.not_after_night and P.is_night(s) and s.day == d - 1:
+                    V.append(f"{tag}: the day after the {s.name} night shift")
+                if l.not_before_night and P.is_night(s) and s.day == d + 1:
+                    V.append(f"{tag}: the day before the {s.name} night shift")
+            if l.not_next_to_vacation and (d - 1 in r.vacation or d + 1 in r.vacation):
+                V.append(f"{tag}: next to vacation")
         days = sorted(d for d, *_ in items)
         if len(days) != len(set(days)):
             V.append(f"{r.name}: two backups on one day")

@@ -103,6 +103,11 @@ read into editable fields: most per person, days between, hours off before and a
 time off, or in their weekly 24 hours off. Backup is chosen after the clinical schedule is final, by an exact
 optimisation that spreads it evenly; a day nobody can take is shown open, with the reasons. Review shows backup
 days as BU, a "Backup days covered" tile and a Backup section; the spreadsheet and calendar mark them on call.
+Since 19 Nov 2026 the rules also include: fewest backup days per person (aimed for), not the day after a night shift,
+not the day before a night shift, and not the day before vacation starts or after it ends. The built-in reader (used
+when no Anthropic key is set) reads the text sentence by sentence and knows many everyday phrasings ("seniors",
+"interns can't", "PGY-2s and PGY-3s", "not back to back", "roughly the same number", "max 3 each"); a sentence it
+cannot read is listed as not understood, and the rules can always be set with the fields and saved.
 
 **Special staffing days** now have their own form. **Modify**: describe the changes in words, "Read the changes"
 turns them into lines you can edit (a shift that does not run, a changed time or headcount, an extra shift), then
@@ -244,11 +249,12 @@ Everything signs in through the real sign-in form.
     node e2e/smoke.cjs            # every list, edit and new page loads without browser errors
     node e2e/flows.cjs            # 51 checks in a real browser (Playwright): the input screens
     npm run db:reset && node e2e/schedule.cjs          # 57 checks: generate -> review (including the calendar views) -> publish, with the real engine (about 3 minutes)
-    npm run db:reset && node e2e/assignments.cjs       # 56 checks: assignments, academic exceptions, special days, backup, previous interval, optimize (about 3 minutes)
+    npm run db:reset && node e2e/assignments.cjs       # 60 checks: assignments, academic exceptions, special days, backup, previous interval, optimize (about 3 minutes)
     npm run db:reset && npx tsx tests/engine-check.ts  # 46 checks on the engine runner, including optimize, no browser needed
     npm run db:reset && npx tsx tests/hard-rules-check.ts  # 25 checks: role grid, institutions and 6 days in a row, both solvers and optimize, the pre-run check, the review page's causes (about 4 minutes)
     npm run db:reset && npx tsx tests/optional-places-check.ts  # 11 checks: shifts that can take 1-2 and a 0-1 Dugout used to reach everyone's minimum (about 2 minutes)
     npm run db:reset && npx tsx tests/grid-property-check.ts  # 150 random role grids (with roles sharing levels): what the engine is told equals the grid and institutions, for every person and shift
+    AI_PROVIDER=mock npx tsx tests/backup-reader-check.ts  # the built-in backup-rule reader on 10 realistic phrasings
     npx tsx tests/ai-check.ts                          # 15 checks on the Claude readers against a stand-in API server (and the fallback)
     npm run db:reset && npx tsx tests/accounts-check.ts  # 61 checks on sign-in, links, limits, setup and start over, no browser needed
     npm run db:reset && python tests/verify_stored.py  # the stored schedule passes the independent rule check

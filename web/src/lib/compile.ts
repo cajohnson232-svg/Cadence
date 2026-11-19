@@ -290,7 +290,8 @@ export async function compileInterval(intervalId: string) {
     if (!eligible.length) warn.push(`${b.name}: nobody assigned to this interval is eligible for it. Tick roles in its eligibility grid.`);
     return { name: b.name, ref: b.id, site: site(b.institutionId), category: cat(b.categoryId), start: hhmm(b.startMinute), hours: b.durationMinutes / 60,
       weekdays: [...b.daysOfWeek], headcount: b.minParticipants, eligible, rules: { max_per_person: r.max_per_person, min_days_between: r.min_days_between,
-        rest_before_hours: r.rest_before_hours, rest_after_hours: r.rest_after_hours } };
+        rest_before_hours: r.rest_before_hours, rest_after_hours: r.rest_after_hours, min_per_person: r.min_per_person,
+        not_after_night: r.not_after_night, not_before_night: r.not_before_night, not_next_to_vacation: r.not_next_to_vacation } };
   });
 
   const config = {

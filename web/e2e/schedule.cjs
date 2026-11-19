@@ -164,9 +164,17 @@ const ok = (cond, what) => { if (cond) { pass++; console.log("ok   " + what); } 
   await generate("quick");
   const review2 = await waitForReview();
   ok(review2 !== review && (await p.getByTestId("stale-notice").count()) === 0, "a schedule generated after the change is up to date");
-  ok(/It replaces Run 2 that is published now/.test(await p.getByTestId("publish-card").innerText()), "the publish panel says it will replace the published one");
+  const card2 = await p.getByTestId("publish-card").innerText();
+  ok(/It replaces Run 2 that is published now/.test(card2), "the publish panel says it will replace the published one");
+  // the demo's backup is tight (10 people x at most 3 days, 3 days apart, for 28 days), so a quick run can leave a
+  // backup day open; that alone asks for the tick. Nothing else may.
+  const onlyBackup = (await p.getByTestId("publish-card").getByRole("checkbox").count()) > 0;
+  if (onlyBackup) {
+    ok(/backup days? ha(s|ve) nobody on backup/.test(card2) && !/shifts? (is|are) still open|inputs have changed/.test(card2), "(a backup day was left open in this run: the only reason a tick is asked for)");
+    await p.getByTestId("publish-card").getByRole("checkbox").check();
+  }
   await flash(p.getByTestId("publish-card").getByRole("button", { name: "Publish schedule" }));
-  ok((await p.getByTestId("schedule-status").innerText()) === "Published", "an up-to-date schedule with nothing open publishes without a tick");
+  ok((await p.getByTestId("schedule-status").innerText()) === "Published", `an up-to-date schedule with nothing open publishes${onlyBackup ? " (with the tick, for the open backup day only)" : " without a tick"}`);
   await go(TAB);
   const list = await p.getByTestId("schedules-table").innerText();
   ok(/Run 3[^]*?Published/.test(list) && /Run 2[^]*?Replaced/.test(list) && (list.match(/Published/g) ?? []).length === 1, "the list shows Run 3 published and Run 2 replaced; only one is published");

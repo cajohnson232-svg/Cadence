@@ -28,17 +28,17 @@ export function BackupRulesForm({ shiftId, aiLabel, text: text0, rules: rules0, 
   const save = () => start(async () => {
     const r = await saveBackupRules(shiftId, { text, rules, eligibleRoleIds: elig });
     setMsg(r);
-    if (r.notice) { setElig(null); router.refresh(); }
+    if (r.notice) { setElig(null); setReading(null); router.refresh(); }
   });
 
   return (
     <div className="space-y-4" data-testid="backup-rules">
       <div><Label htmlFor="bk-text">The rules, in your own words</Label>
         <Textarea id="bk-text" rows={3} value={text} onChange={(e) => setText(e.target.value)}
-          placeholder="e.g. PGY-2 and up only. No more than 3 backup days each, at least 4 days apart. 12 hours off before backup." /></div>
+          placeholder="e.g. PGY-2 and up only. No more than 3 backup days each, at least 1 each, not back to back. Not the day after a night shift or next to vacation." /></div>
       <div className="flex items-center gap-3">
         <Button type="button" variant="outline" size="sm" disabled={busy || !text.trim()} onClick={read}>{busy ? "Reading…" : "Turn into rules"}</Button>
-        <span className="text-xs text-muted">Read by {aiLabel}. Check and edit the result, then save.</span>
+        <span className="text-xs text-muted">Read by {aiLabel}. Check and edit the result, then save.{/stand-in/.test(aiLabel) ? " The built-in reader knows common phrasings only; switching on Claude (DEPLOY.md, Part 6) reads anything." : ""}</span>
       </div>
       {reading && (
         <div className="rounded-md bg-surface px-3 py-2 text-sm" data-testid="backup-reading">
@@ -46,11 +46,17 @@ export function BackupRulesForm({ shiftId, aiLabel, text: text0, rules: rules0, 
           <ul className="mt-1 list-disc pl-5">{reading.explanation.map((e, i) => <li key={i}>{e}</li>)}</ul>
         </div>
       )}
-      <div className="grid gap-4 sm:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-5">
+        <div><Label htmlFor="bk-min">Fewest backup days per person</Label><Input id="bk-min" type="number" min={0} max={31} placeholder="No minimum" value={rules.min_per_person ?? ""} onChange={(e) => set({ min_per_person: n(e.target.value, null) || null })} /></div>
         <div><Label htmlFor="bk-max">Most backup days per person</Label><Input id="bk-max" type="number" min={0} max={31} placeholder="No limit" value={rules.max_per_person ?? ""} onChange={(e) => set({ max_per_person: n(e.target.value, null) })} /></div>
         <div><Label htmlFor="bk-gap">Days between one person&apos;s backups</Label><Input id="bk-gap" type="number" min={0} max={14} value={rules.min_days_between} onChange={(e) => set({ min_days_between: n(e.target.value, 0) ?? 0 })} /></div>
         <div><Label htmlFor="bk-before">Hours off before</Label><Input id="bk-before" type="number" min={0} max={48} step={0.5} value={rules.rest_before_hours} onChange={(e) => set({ rest_before_hours: n(e.target.value, 0) ?? 0 })} /></div>
         <div><Label htmlFor="bk-after">Hours off after</Label><Input id="bk-after" type="number" min={0} max={48} step={0.5} value={rules.rest_after_hours} onChange={(e) => set({ rest_after_hours: n(e.target.value, 0) ?? 0 })} /></div>
+      </div>
+      <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
+        <label className="flex items-center gap-2"><input type="checkbox" checked={rules.not_after_night} onChange={(e) => set({ not_after_night: e.target.checked })} className="size-4" />Not the day after a night shift</label>
+        <label className="flex items-center gap-2"><input type="checkbox" checked={rules.not_before_night} onChange={(e) => set({ not_before_night: e.target.checked })} className="size-4" />Not the day before a night shift</label>
+        <label className="flex items-center gap-2"><input type="checkbox" checked={rules.not_next_to_vacation} onChange={(e) => set({ not_next_to_vacation: e.target.checked })} className="size-4" />Not the day before or after vacation</label>
       </div>
       <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={rules.counts_as_shift} onChange={(e) => set({ counts_as_shift: e.target.checked })} className="size-4" />
         Counts as a worked shift (toward shift totals and hours). Leave unticked for on call only.</label>

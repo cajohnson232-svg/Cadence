@@ -25,36 +25,103 @@ async function withFallback<T extends { by: string }>(claude: () => Promise<T>, 
 }
 
 // ───────────────────────────── backup rules ─────────────────────────────
+const ORD: Record<string, number> = { first: 1, second: 2, third: 3, fourth: 4, "1st": 1, "2nd": 2, "3rd": 3, "4th": 4 };
+
+/** Who may take backup, from one sentence: PGY numbers ("PGY-2s and PGY-3s", "PGY2/3", "PGY-2 and up"), years
+ *  ("second and third years"), interns, juniors and seniors; "not"/"no"/"except" before them excludes instead. */
+function backupRoles(s: string, roles: (Named & { level: number })[]): { ids: string[]; why: string } | null {
+  const levels = [...new Set(roles.map((r) => r.level))].sort((a, b) => a - b), top = levels[levels.length - 1];
+  const named = new Set<number>();
+  let up: number | null = null;
+  for (const m of s.matchAll(/\bpgy[- ]?(\d)((?:\s*(?:\/|,|&|and|or)\s*(?:pgy[- ]?)?\d)*)/g)) {
+    named.add(Number(m[1]));
+    for (const d of (m[2] ?? "").matchAll(/(\d)/g)) named.add(Number(d[1]));
+    if (new RegExp(`^pgy[- ]?${m[1]}s?\\s*(?:and (?:up|above|higher|older)|\\+|or (?:above|higher|more senior|senior))`).test(s.slice(m.index!))) up = Number(m[1]);
+  }
+  for (const m of s.matchAll(/\b(first|second|third|fourth|1st|2nd|3rd|4th)(?:\s*(?:,|and|or|&)\s*(first|second|third|fourth|1st|2nd|3rd|4th))*[- ]years?\b/g))
+    for (const w of m[0].match(/first|second|third|fourth|1st|2nd|3rd|4th/g) ?? []) named.add(ORD[w]);
+  if (/\binterns?\b|\bjuniors?\b|\bjunior residents?\b/.test(s)) named.add(levels[0]);
+  const seniors = /\bseniors?\b|\bsenior residents?\b|\bupper[- ]levels?\b/.test(s);
+  if (!named.size && !seniors && up == null) return null;
+  const neg = /\b(no|not|never|cannot|can't|can not|except|excluding|other than|aren't|isn't|shouldn't|should not|may not)\b[^.]{0,40}\b(pgy|interns?|juniors?|first|second|third|fourth|1st|2nd|3rd|4th|seniors?|upper)/.test(s)
+    || /\b(pgy[- ]?\d|interns?|juniors?|seniors?|years?)\b[^.]{0,25}\b(can't|cannot|can not|are not|aren't|may not|must not|should not|shouldn't|never|don't|do not|not allowed|excluded|exempt)\b/.test(s);
+  let pick: (l: number) => boolean;
+  if (up != null) pick = (l) => l >= up!;
+  else if (neg) pick = (l) => !named.has(l) && !(seniors && l === top);
+  else pick = (l) => named.has(l) || (seniors && l === top) || (seniors && named.size === 0 && l === top);
+  const ids = roles.filter((r) => pick(r.level)).map((r) => r.id);
+  if (!ids.length) return null;
+  return { ids, why: `Can take backup: ${roles.filter((r) => pick(r.level)).map((r) => r.name).join(", ")}${seniors && !named.size && up == null ? " (\"seniors\" read as the most senior level; change below if you mean more)" : ""}.` };
+}
+
 function mockBackup(text: string, roles: (Named & { level: number })[]): BackupProposal {
-  const t = low(text), why: string[] = [];
+  const why: string[] = [], left: string[] = [];
   const r: BackupRules = cleanBackupRules({});
-  let m: RegExpExecArray | null;
-  if ((m = new RegExp(`(?:no more than|not more than|at most|max(?:imum)?(?: of)?|up to|limit(?:ed)? to)\\s+${N}\\s*(?:backup|back-up|on[- ]call)?\\s*(?:days?|shifts?|times?|each|per person|a person|apiece)`).exec(t))) {
-    r.max_per_person = numOf(m[1]); why.push(`At most ${r.max_per_person} backup days per person.`);
-  }
-  if ((m = new RegExp(`(?:at least\\s+)?${N}\\s+days?\\s+(?:apart|between)`).exec(t))) { r.min_days_between = numOf(m[1]); why.push(`At least ${r.min_days_between} days between one person's backups.`); }
-  if ((m = new RegExp(`${N}\\s*(?:hours?|hrs?|h)\\b[^.]{0,25}\\b(?:before)`).exec(t))) { r.rest_before_hours = numOf(m[1]); why.push(`${r.rest_before_hours} hours free of shifts before backup.`); }
-  if ((m = new RegExp(`${N}\\s*(?:hours?|hrs?|h)\\b[^.]{0,25}\\b(?:after)`).exec(t))) { r.rest_after_hours = numOf(m[1]); why.push(`${r.rest_after_hours} hours free of shifts after backup.`); }
-  if (/\b(counts? as (a )?(worked )?shift|counts? toward|count it as)\b/.test(t) && !/\b(not|doesn't|does not|don't)\b[^.]{0,15}\bcount/.test(t)) { r.counts_as_shift = true; why.push("Counts as a worked shift."); }
   let eligible: string[] | null = null;
-  if ((m = /\bpgy-?\s?(\d)\s*(?:and (?:up|above|higher)|\+|or (?:above|higher|senior))/.exec(t))) {
-    const lvl = Number(m[1]); eligible = roles.filter((x) => x.level >= lvl).map((x) => x.id); why.push(`Only PGY-${lvl} and up (${roles.filter((x) => x.level >= lvl).map((x) => x.name).join(", ")}).`);
-  } else if ((m = /\bonly\s+pgy-?\s?(\d)s?\b/.exec(t) ?? /\bpgy-?\s?(\d)s?\s+only\b/.exec(t))) {
-    const lvl = Number(m[1]); eligible = roles.filter((x) => x.level === lvl).map((x) => x.id); why.push(`Only PGY-${lvl}.`);
+  const sentences = text.split(/(?<=[.;!?\n])\s+|\s*\n\s*|\s+(?:and|but)\s+(?=(?:no|not|never|nobody|no one|each|every|everyone|at least|at most|max|only|they|it|backup)\b)/i).map((x) => x.trim()).filter((x) => x.replace(/[.;!?\s]/g, ""));
+  for (const raw of sentences) {
+    const t = low(raw), before = why.length;
+    let m: RegExpExecArray | null;
+    // most per person
+    if ((m = new RegExp(`(?:no more than|not more than|at most|max(?:imum)?(?: of)?|up to|limit(?:ed)? to|cap(?:ped)? at|cap of|never more than)\\s+${N}\\b`).exec(t)) ??
+        (m = new RegExp(`\\b${N}\\s*(?:backups?|back-ups?|on[- ]calls?|days?|shifts?|times?)?\\s*(?:max(?:imum)?|at most|tops)\\b`).exec(t)) ??
+        (m = new RegExp(`\\b(?:each|every)(?: person| resident| one)? (?:gets?|has|takes?|does|works?|covers?) (?:no more than |at most |up to )?${N}\\b(?! or more)`).exec(t))) {
+      if (!/\bat least\b|\bminimum\b|\bor more\b/.test(t.slice(0, m.index + m[0].length + 10)) || /\bat most|no more|max|up to|limit|cap/.test(m[0])) {
+        r.max_per_person = numOf(m[1]); why.push(`At most ${r.max_per_person} backup days per person.`);
+      }
+    }
+    // least per person
+    if ((m = new RegExp(`(?:at least|a minimum of|minimum(?: of)?|no fewer than|not less than)\\s+${N}\\s*(?:backups?|back-ups?|on[- ]calls?|days?|shifts?|times?)?\\s*(?:each|per person|a person|apiece|per resident|for everyone|for each)`).exec(t)) ??
+        (m = new RegExp(`\\b(?:everyone|everybody|each (?:person|resident|senior)|every (?:person|resident|senior))\\b[^.]{0,30}\\b(?:at least|minimum(?: of)?)\\s+${N}\\b`).exec(t))) {
+      r.min_per_person = numOf(m[1]); why.push(`At least ${r.min_per_person} backup day${r.min_per_person === 1 ? "" : "s"} per eligible person, where possible.`);
+    }
+    // spacing
+    if ((m = new RegExp(`(?:at least\\s+)?${N}\\s+(?:full\\s+)?days?\\s+(?:apart|between|in between|off between|gap)`).exec(t)) ??
+        (m = new RegExp(`\\b(?:no two|not two)\\b[^.]{0,30}\\bwithin\\s+${N}\\s+days?`).exec(t))) {
+      r.min_days_between = numOf(m[1]); why.push(`At least ${r.min_days_between} days between one person's backups.`);
+    } else if (/\b(back[- ]to[- ]back|consecutive days?|two days in a row|days in a row|in a row)\b/.test(t) && /\b(no|not|never|avoid|nobody|no one)\b/.test(t) && !/night/.test(t)) {
+      r.min_days_between = Math.max(r.min_days_between, 1); why.push("Not on back-to-back days (at least 1 day between one person's backups).");
+    }
+    // nights and vacation next to backup
+    const nightAfter = /\b(after|following|post|coming off|off of|off)\b[^.]{0,20}\bnights?\b|\bpost[- ]?nights?\b/.test(t);
+    const nightBefore = /\b(before|prior to|ahead of|leading into|going into|the day before)\b[^.]{0,20}\bnights?\b/.test(t);
+    if (/\bnights?\b/.test(t) && /\b(no|not|never|nobody|no one|cannot|can't|shouldn't|should not|avoid|isn't|aren't)\b/.test(t)) {
+      if (nightAfter || (!nightBefore && /\b(around|next to|adjacent|surrounding|either side)\b/.test(t))) { r.not_after_night = true; why.push("Not the day after a night shift."); }
+      if (nightBefore || /\b(around|next to|adjacent|surrounding|either side|before or after|after or before)\b/.test(t)) { r.not_before_night = true; why.push("Not the day before a night shift."); }
+      if (!nightAfter && !nightBefore && !/\b(around|next to|adjacent|surrounding|either side)\b/.test(t) && /\b(on|during|working)\b[^.]{0,15}\bnights?\b/.test(t))
+        why.push("Nobody is on backup on a day they work any shift, nights included (always the case).");
+    }
+    if (/\b(vacation|holiday leave|pto|time off|leave)\b/.test(t) && /\b(before|after|next to|adjacent|around|either side|surrounding|leading into|coming back|back from|returning)\b/.test(t)
+        && /\b(no|not|never|nobody|no one|avoid|cannot|can't|shouldn't|should not)\b/.test(t)) {
+      r.not_next_to_vacation = true; why.push("Not the day before vacation starts or the day after it ends.");
+    }
+    // rest in hours
+    if ((m = new RegExp(`${N}\\s*(?:hours?|hrs?|h)\\b[^.]{0,30}\\b(?:before)`).exec(t))) { r.rest_before_hours = numOf(m[1]); why.push(`${r.rest_before_hours} hours free of shifts before backup.`); }
+    if ((m = new RegExp(`${N}\\s*(?:hours?|hrs?|h)\\b[^.]{0,30}\\b(?:after)`).exec(t))) { r.rest_after_hours = numOf(m[1]); why.push(`${r.rest_after_hours} hours free of shifts after backup.`); }
+    // counts as a shift, or not
+    if (/\b(counts? as (a )?(worked )?shift|counts? toward|count it as|counted as (a )?shift)\b/.test(t) && !/\b(not|doesn't|does not|don't|do not|never)\b[^.]{0,20}\bcount/.test(t)) { r.counts_as_shift = true; why.push("Counts as a worked shift."); }
+    else if (/\b(not|doesn't|does not|don't|do not|never)\b[^.]{0,20}\bcount|\bon[- ]call only\b|\bfrom home\b|\bat home\b/.test(t)) why.push("On call only: does not count toward shifts or hours (the default).");
+    // who
+    const who = backupRoles(t, roles);
+    if (who) { if (JSON.stringify(who.ids) !== JSON.stringify(eligible)) why.push(who.why); else if (why.length === before) why.push(""); eligible = who.ids; }
+    // fairness: already how backup is chosen
+    if (/\b(even(ly)?|equal(ly)?|fair(ly)?|same number|balanced?|spread|share|distribute|roughly the same)\b/.test(t)) why.push("Spread as evenly as possible (always the case).");
+    if (why.length === before) left.push(raw.replace(/\s+/g, " "));
   }
-  const used = why.length;
-  if (!used) why.push("No rule was recognised in this text.");
-  const leftover = text.split(/(?<=[.;])\s+/).filter((sentence) => {
-    const s = low(sentence);
-    return !/(\d|one|two|three|four|five|six|seven|eight|nine|ten)\b.*\b(days?|hours?|shifts?|times?|each|per person|apart)\b|pgy|counts?/.test(s);
-  }).join(" ").trim();
-  if (leftover) { r.not_understood = leftover; why.push(`Not understood, so not enforced: "${leftover}"`); }
+  const seen = new Set<string>();
+  why.splice(0, why.length, ...why.filter((w) => w && !seen.has(w) && seen.add(w)));
+  if (left.length) {
+    r.not_understood = left.join(" ");
+    why.push(why.length ? `Not understood, so not enforced: "${r.not_understood}". Set it with the fields below if one fits, or reword it.`
+      : "The built-in reader did not recognise any rule in these words. Set the rules with the fields below (your words are saved with them), or reword using the examples in the box.");
+  }
   return { rules: r, eligibleRoleIds: eligible, explanation: why, by: "keyword stand-in" };
 }
 
 export async function proposeBackupRules(text: string, ctx: { today: string; roles: (Named & { level: number })[] }): Promise<BackupProposal> {
   return withFallback(async () => {
     const out = await askForTool<{ max_per_person: number | null; min_days_between: number; rest_before_hours: number; rest_after_hours: number; counts_as_shift: boolean;
+      min_per_person: number | null; not_after_night: boolean; not_before_night: boolean; not_next_to_vacation: boolean;
       eligible_role_ids: string[] | null; not_understood: string; explanation: string[] }>({
       system: [
         "You turn an emergency medicine residency administrator's description of their BACKUP (on-call, at home) shift into structured rules.",
@@ -63,17 +130,23 @@ export async function proposeBackupRules(text: string, ctx: { today: string; rol
         "min_days_between: at least this many days between two backup days of one person (0 = no spacing).",
         "rest_before_hours / rest_after_hours: hours free of clinical shifts required before / after the backup period.",
         "counts_as_shift: true only if the text says backup counts as a worked shift toward shift totals or hours; default false.",
+        "min_per_person: at least this many backup days for each eligible person (aimed for), or null.",
+        "not_after_night / not_before_night: true if the text says no backup the day after / the day before a night shift.",
+        "not_next_to_vacation: true if the text says no backup right before or right after a vacation.",
+        "Backup is always spread as evenly as possible and never on a day the person works; say so in the explanation rather than in not_understood.",
         "eligible_role_ids: the roles allowed to take backup if the text limits it (use ids from the list), else null.",
         "not_understood: any part of the text these fields cannot express, quoted, else empty. Do not stretch a field to fit.",
         "explanation: short plain sentences saying how you read the text.",
       ].join("\n"),
       user: `${contextBlock({ today: ctx.today, roles: ctx.roles.map((r) => ({ id: r.id, name: `${r.name} (level ${r.level})` })) })}\n\nBackup shift rules:\n${text}`,
       tool: { name: "propose_backup_rules", description: "The backup shift's rules.", input_schema: { type: "object",
-        required: ["max_per_person", "min_days_between", "rest_before_hours", "rest_after_hours", "counts_as_shift", "eligible_role_ids", "not_understood", "explanation"],
+        required: ["max_per_person", "min_days_between", "rest_before_hours", "rest_after_hours", "counts_as_shift", "min_per_person", "not_after_night", "not_before_night",
+          "not_next_to_vacation", "eligible_role_ids", "not_understood", "explanation"],
         properties: {
           max_per_person: { type: ["integer", "null"], minimum: 0, maximum: 31 }, min_days_between: { type: "integer", minimum: 0, maximum: 14 },
           rest_before_hours: { type: "number", minimum: 0, maximum: 48 }, rest_after_hours: { type: "number", minimum: 0, maximum: 48 },
-          counts_as_shift: { type: "boolean" }, eligible_role_ids: { type: ["array", "null"], items: { type: "string" } },
+          counts_as_shift: { type: "boolean" }, min_per_person: { type: ["integer", "null"], minimum: 0, maximum: 31 },
+          not_after_night: { type: "boolean" }, not_before_night: { type: "boolean" }, not_next_to_vacation: { type: "boolean" }, eligible_role_ids: { type: ["array", "null"], items: { type: "string" } },
           not_understood: { type: "string" }, explanation: { type: "array", items: { type: "string" } },
         } } },
     });
