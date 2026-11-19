@@ -137,7 +137,7 @@ async function main() {
   ok(left.Participant === 0 && left.Shift === 0 && left.Interval === 0 && left.Assignment === 0 && left.Schedule === 0 && left.ScheduledShift === 0 && left.TimeOff === 0 && left.AcademicDay === 0 && left.SpecialStaffingDay === 0 && left.ShiftAdjustment === 0 && left.AuditLog === 0,
     "start over removes the program's people, shifts, intervals, time off, schedules and history");
   ok(left.Institution === 1 && (await db.institution.count({ where: { programId: other.id } })) === 1 && (await signIn("outsider@example.org", GOOD, null)).ok, "another program's data and people are untouched");
-  ok((await db.rule.count({ where: { programId: PROG, source: "SYSTEM" } })) === 12 && left.Rule === 12 && (await db.shiftCategory.count({ where: { programId: PROG } })) === 3 && (await db.role.count({ where: { programId: PROG } })) === 4, "the standard 12 rules, 3 shift categories and 4 PGY roles are put back");
+  ok((await db.rule.count({ where: { programId: PROG, source: "SYSTEM" } })) === 13 && left.Rule === 13 && (await db.shiftCategory.count({ where: { programId: PROG } })) === 3 && (await db.role.count({ where: { programId: PROG } })) === 4, "the standard 13 rules, 3 shift categories and 4 PGY roles are put back");
   const stay = (await db.membership.findMany({ where: { programId: PROG }, include: { user: true } })).map((m) => `${m.user.email}:${m.access}`).sort();
   ok(stay.join() === "coordinator@example.org:ADMIN,sam@example.org:ADMIN", `administrators keep their access; chiefs and residents lose it (${stay.join(", ")})`);
   ok((await signIn("coordinator@example.org", "cadence-demo-2027", null)).ok && !(await signIn("nguyen@example.org", "cadence-demo-2027", null)).ok && !(await db.user.findUnique({ where: { email: "nguyen@example.org" } })), "an administrator can still sign in; a removed chief cannot, and their account is gone");
@@ -153,7 +153,7 @@ async function main() {
   ]);
   ok(two.filter((r) => r.ok).length === 1 && (await db.user.count({ where: { passwordHash: { not: null } } })) === 1 && (await db.program.count()) === 1, "two people submitting setup at the same moment: one becomes the administrator, the other is refused, and one program exists");
   const prog = await db.program.findFirstOrThrow();
-  ok((await db.rule.count({ where: { programId: prog.id } })) === 12 && (await db.shiftCategory.count()) === 3 && (await db.role.count()) === 4 && (await db.participant.count()) === 0, "an empty program starts with the standard rules, categories and roles, and nobody in it");
+  ok((await db.rule.count({ where: { programId: prog.id } })) === 13 && (await db.shiftCategory.count()) === 3 && (await db.role.count()) === 4 && (await db.participant.count()) === 0, "an empty program starts with the standard rules, categories and roles, and nobody in it");
   ok(!(await setupNeeded()), "after that, setup is closed");
   execFileSync("npx", ["tsx", "scripts/reset-db.ts", "--empty"], { stdio: "pipe", env: { ...process.env, DATABASE_URL: url } });
   const demo = await runFirstSetup({ name: "Dana Director", email: "dana@example.org", password: GOOD, again: GOOD, programName: "", timezone: "America/Chicago", start: "demo" });

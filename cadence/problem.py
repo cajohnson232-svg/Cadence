@@ -71,6 +71,7 @@ class Resident:
     unavailable: list = field(default_factory=list)     # hard "cannot work" rules, see Problem._unavailable
     only_refs: frozenset | None = None                  # if set, the only shift templates this person may work
     site_share: dict = field(default_factory=dict)     # site -> target % of this person's shifts (soft, see "site split")
+    max_consecutive_days: int | None = None             # personal limit on days worked in a row (else the program's)
 
 
 @dataclass
@@ -100,6 +101,7 @@ class Rules:
     balance_tolerance_shifts: float = 1.0   # day/evening/night counts within this of fair share are "balanced"
     pod_tolerance_shifts: int = 1           # |pod A - pod B| up to this is "balanced"
     site_share_tolerance_shifts: int = 1    # within this many shifts of a person's target split between sites is "met"
+    max_consecutive_days: int | None = 6    # hard: days worked in a row (a shift counts on the day it belongs to); None/0 = no limit
     history_days: int = 7
 
 
@@ -131,10 +133,13 @@ class Problem:
             sites=tuple(r["sites"]) if r.get("sites") else None,
             only_refs=frozenset(r["only_shifts"]) if r.get("only_shifts") is not None else None,
             site_share={k: int(v) for k, v in (r.get("site_share") or {}).items()},
+            max_consecutive_days=int(r["max_consecutive_days"]) if r.get("max_consecutive_days") else None,
             unavailable=[dict(u, start_min=to_min(u["start"]) if u.get("start") is not None else None,
                               dur_min=to_min(u.get("hours", 24))) for u in r.get("unavailable", [])])
             for r in cfg["residents"]]
         self.by_id = {r.id: r for r in self.residents}
+        for r in self.residents:
+            assert self.max_run(r) is None or self.max_run(r) >= 1, f"{r.id}: max_consecutive_days must be at least 1"
 
         # ---- shift templates expanded onto dates --------------------------------
         self.templates = cfg["shift_templates"]
@@ -206,6 +211,10 @@ class Problem:
 
     def label(self, d: int) -> str:
         return self.date(d).strftime("%a %m/%d")
+
+    def max_run(self, r):
+        """Most days in a row this person may work (None = no limit)."""
+        return r.max_consecutive_days or self.rules.max_consecutive_days or None
 
     def is_night(self, s: Shift) -> bool:
         return s.cat in self.night_cats

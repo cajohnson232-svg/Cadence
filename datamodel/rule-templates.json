@@ -2,153 +2,898 @@
   "version": 1,
   "about": "The library of structured rule templates. Rule.template holds a key from this file and Rule.params must match that template's params schema (JSON Schema). 'solver' says whether the scheduling engine enforces the template today ('enforced', for the scopes listed) or whether it is saved and shown but not yet enforced ('stored').",
   "templates": [
-    {"key": "max_hours_rolling_week", "group": "Duty hours", "label": "Max clinical hours in any 7 days",
-     "sentence": "No more than {hours} scheduled clinical hours in any rolling 7-day period",
-     "scopes": ["PROGRAM"], "levels": ["HARD"], "solver": "enforced", "enforcedScopes": ["PROGRAM"],
-     "params": {"type": "object", "properties": {"hours": {"type": "number", "minimum": 1, "maximum": 168}}, "required": ["hours"], "additionalProperties": false}},
-
-    {"key": "one_day_off_in_seven", "group": "Duty hours", "label": "One 24-hour period off every 7 days",
-     "sentence": "At least one continuous 24 hours free of shifts and academic time in every 7 days",
-     "scopes": ["PROGRAM"], "levels": ["HARD"], "solver": "enforced", "enforcedScopes": ["PROGRAM"],
-     "solverNote": "Always on in the engine; it cannot be switched off.",
-     "params": {"type": "object", "properties": {}, "additionalProperties": false}},
-
-    {"key": "rest_equal_to_shift_length", "group": "Duty hours", "label": "Rest after a shift relative to its length",
-     "sentence": "Time off after a shift is at least {ratio} x the length of that shift",
-     "scopes": ["PROGRAM"], "levels": ["HARD"], "solver": "enforced", "enforcedScopes": ["PROGRAM"],
-     "params": {"type": "object", "properties": {"ratio": {"type": "number", "minimum": 0, "maximum": 3}}, "required": ["ratio"], "additionalProperties": false}},
-
-    {"key": "min_hours_off_between_shifts", "group": "Duty hours", "label": "Min hours off between shifts",
-     "sentence": "At least {hours} hours off between shifts",
-     "scopes": ["PROGRAM", "ROLE", "PARTICIPANT"], "levels": ["HARD", "SOFT"], "solver": "enforced", "enforcedScopes": ["PROGRAM"],
-     "solverNote": "Enforced as a hard program-wide rule. Role, participant and soft versions are stored only.",
-     "params": {"type": "object", "properties": {"hours": {"type": "number", "minimum": 0, "maximum": 72}}, "required": ["hours"], "additionalProperties": false}},
-
-    {"key": "max_consecutive_shifts", "group": "Duty hours", "label": "Max consecutive shifts",
-     "sentence": "No more than {n} shifts on consecutive days",
-     "scopes": ["PROGRAM", "INSTITUTION", "ROLE", "PARTICIPANT"], "levels": ["HARD", "SOFT"], "solver": "stored",
-     "params": {"type": "object", "properties": {"n": {"type": "integer", "minimum": 1, "maximum": 14}}, "required": ["n"], "additionalProperties": false}},
-
-    {"key": "max_shifts_per_week", "group": "Duty hours", "label": "Max shifts per week",
-     "sentence": "No more than {n} shifts in any 7 days",
-     "scopes": ["PROGRAM", "ROLE", "PARTICIPANT"], "levels": ["HARD", "SOFT"], "solver": "stored",
-     "params": {"type": "object", "properties": {"n": {"type": "integer", "minimum": 1, "maximum": 7}}, "required": ["n"], "additionalProperties": false}},
-
-    {"key": "max_shifts_per_interval", "group": "Duty hours", "label": "Max shifts per interval",
-     "sentence": "No more than {n} shifts in the interval",
-     "scopes": ["PROGRAM", "ROLE", "PARTICIPANT"], "levels": ["HARD"], "solver": "enforced", "enforcedScopes": ["PROGRAM", "ROLE", "PARTICIPANT"],
-     "params": {"type": "object", "properties": {"n": {"type": "integer", "minimum": 0, "maximum": 62}}, "required": ["n"], "additionalProperties": false}},
-
-    {"key": "no_night_then_day", "group": "Duty hours", "label": "No night shift followed by a day shift",
-     "sentence": "A night shift is never followed by a day shift the next day",
-     "scopes": ["PROGRAM", "ROLE", "PARTICIPANT"], "levels": ["HARD", "SOFT"], "solver": "stored",
-     "solverNote": "In practice already covered by the rest rule and the forward-rotation goal.",
-     "params": {"type": "object", "properties": {}, "additionalProperties": false}},
-
-    {"key": "max_nights_per_interval", "group": "Nights", "label": "Max night shifts per interval",
-     "sentence": "No more than {n} night shifts in the interval",
-     "scopes": ["PROGRAM", "ROLE", "PARTICIPANT"], "levels": ["HARD"], "solver": "enforced", "enforcedScopes": ["PROGRAM"],
-     "params": {"type": "object", "properties": {"n": {"type": "integer", "minimum": 0, "maximum": 31}}, "required": ["n"], "additionalProperties": false}},
-
-    {"key": "max_night_runs", "group": "Nights", "label": "Max runs of nights per interval",
-     "sentence": "No more than {n} separate runs of night shifts in the interval",
-     "scopes": ["PROGRAM"], "levels": ["HARD"], "solver": "enforced", "enforcedScopes": ["PROGRAM"],
-     "params": {"type": "object", "properties": {"n": {"type": "integer", "minimum": 1, "maximum": 10}}, "required": ["n"], "additionalProperties": false}},
-
-    {"key": "max_nights_in_a_row", "group": "Nights", "label": "Max nights in a row",
-     "sentence": "No more than {n} night shifts in a row",
-     "scopes": ["PROGRAM", "ROLE", "PARTICIPANT"], "levels": ["HARD", "SOFT"], "solver": "stored",
-     "solverNote": "The engine has the soft version as part of 'single run of nights'.",
-     "params": {"type": "object", "properties": {"n": {"type": "integer", "minimum": 1, "maximum": 14}}, "required": ["n"], "additionalProperties": false}},
-
-    {"key": "single_night_run", "group": "Nights", "label": "One run of nights per person",
-     "sentence": "Aim for a single run of nights per person, at most {max_length} nights long",
-     "scopes": ["PROGRAM"], "levels": ["SOFT"], "solver": "enforced", "enforcedScopes": ["PROGRAM"],
-     "params": {"type": "object", "properties": {"max_length": {"type": "integer", "minimum": 1, "maximum": 14}}, "required": ["max_length"], "additionalProperties": false}},
-
-    {"key": "min_days_between_night_runs", "group": "Nights", "label": "Days between runs of nights",
-     "sentence": "At least {days} days between runs of nights",
-     "scopes": ["PROGRAM"], "levels": ["SOFT"], "solver": "enforced", "enforcedScopes": ["PROGRAM"],
-     "params": {"type": "object", "properties": {"days": {"type": "integer", "minimum": 1, "maximum": 28}}, "required": ["days"], "additionalProperties": false}},
-
-    {"key": "max_night_fraction", "group": "Nights", "label": "Max share of nights",
-     "sentence": "No more than {percent}% of a person's scheduled hours are nights",
-     "scopes": ["PROGRAM"], "levels": ["SOFT"], "solver": "enforced", "enforcedScopes": ["PROGRAM"],
-     "params": {"type": "object", "properties": {"percent": {"type": "integer", "minimum": 0, "maximum": 100}}, "required": ["percent"], "additionalProperties": false}},
-
-    {"key": "no_night_before_time_off", "group": "Nights", "label": "No night shift heading into vacation",
-     "sentence": "No overnight shift that ends on a vacation day",
-     "scopes": ["PROGRAM"], "levels": ["SOFT"], "solver": "enforced", "enforcedScopes": ["PROGRAM"],
-     "params": {"type": "object", "properties": {}, "additionalProperties": false}},
-
-    {"key": "forward_rotation", "group": "Pattern and fairness", "label": "Forward (clockwise) rotation",
-     "sentence": "Shifts rotate forward (day, evening, swing, night); avoid backward steps from one day to the next",
-     "scopes": ["PROGRAM"], "levels": ["SOFT"], "solver": "enforced", "enforcedScopes": ["PROGRAM"],
-     "params": {"type": "object", "properties": {}, "additionalProperties": false}},
-
-    {"key": "balance_shift_categories", "group": "Pattern and fairness", "label": "Balance days / evenings / nights",
-     "sentence": "Each person's days, evenings and nights stay within {tolerance_shifts} shift(s) of their fair share",
-     "scopes": ["PROGRAM"], "levels": ["SOFT"], "solver": "enforced", "enforcedScopes": ["PROGRAM"],
-     "params": {"type": "object", "properties": {"tolerance_shifts": {"type": "number", "minimum": 0, "maximum": 10}}, "required": ["tolerance_shifts"], "additionalProperties": false}},
-
-    {"key": "balance_areas", "group": "Pattern and fairness", "label": "Balance two areas",
-     "sentence": "Each person's shifts in {area_a} and {area_b} stay within {tolerance_shifts} of each other",
-     "scopes": ["INSTITUTION"], "levels": ["SOFT"], "solver": "enforced", "enforcedScopes": ["INSTITUTION"],
-     "solverNote": "One tolerance applies to every area pair; the engine uses the smallest one set.",
-     "params": {"type": "object", "properties": {"area_a": {"type": "string", "x-ref": "Area"}, "area_b": {"type": "string", "x-ref": "Area"}, "tolerance_shifts": {"type": "integer", "minimum": 0, "maximum": 10}}, "required": ["area_a", "area_b", "tolerance_shifts"], "additionalProperties": false}},
-
-    {"key": "consecutive_days_off", "group": "Pattern and fairness", "label": "Keep days off together",
-     "sentence": "Prefer two or more days off in a row over isolated single days off",
-     "scopes": ["PROGRAM"], "levels": ["SOFT"], "solver": "enforced", "enforcedScopes": ["PROGRAM"],
-     "params": {"type": "object", "properties": {}, "additionalProperties": false}},
-
-    {"key": "weekends_per_interval", "group": "Pattern and fairness", "label": "Weekends worked per interval",
-     "sentence": "Between {min} and {max} weekends worked in the interval",
-     "scopes": ["PROGRAM", "ROLE", "PARTICIPANT"], "levels": ["HARD", "SOFT"], "solver": "stored",
-     "params": {"type": "object", "properties": {"min": {"type": "integer", "minimum": 0, "maximum": 6}, "max": {"type": "integer", "minimum": 0, "maximum": 6}}, "required": ["min", "max"], "additionalProperties": false}},
-
-    {"key": "unavailable", "group": "Availability", "label": "Cannot work (by date, weekday, time, shift type or site)",
-     "sentence": "Cannot work the matching shifts. Leave a field empty to match everything",
-     "scopes": ["PROGRAM", "ROLE", "PARTICIPANT"], "levels": ["HARD", "SOFT"], "solver": "enforced", "enforcedScopes": ["PROGRAM", "ROLE", "PARTICIPANT"],
-     "solverNote": "Enforced when hard. The date range comes from the rule's active dates. Soft versions are stored only. Chief days are this template: Thursdays from 00:00 for 13 hours.",
-     "params": {"type": "object", "properties": {
-        "weekdays": {"type": "array", "items": {"type": "integer", "minimum": 0, "maximum": 6}, "uniqueItems": true},
-        "start": {"type": "string", "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$"},
-        "hours": {"type": "number", "exclusiveMinimum": 0, "maximum": 24},
-        "category_ids": {"type": "array", "items": {"type": "string", "x-ref": "ShiftCategory"}},
-        "institution_ids": {"type": "array", "items": {"type": "string", "x-ref": "Institution"}}},
-       "dependentRequired": {"start": ["hours"], "hours": ["start"]}, "additionalProperties": false}},
-
-    {"key": "work_with", "group": "People", "label": "Must / must not work with",
-     "sentence": "{together} be on shift at the same time as {participant_id}",
-     "scopes": ["PARTICIPANT"], "levels": ["HARD", "SOFT"], "solver": "stored",
-     "params": {"type": "object", "properties": {"participant_id": {"type": "string", "x-ref": "Participant"}, "together": {"type": "boolean"}}, "required": ["participant_id", "together"], "additionalProperties": false}},
-
-    {"key": "required_headcount", "group": "Staffing", "label": "Required headcount per shift per role",
-     "sentence": "{shift_id} needs at least {count} of {role_id}",
-     "scopes": ["PROGRAM", "INSTITUTION"], "levels": ["HARD", "SOFT"], "solver": "stored",
-     "solverNote": "The engine staffs each shift to its total headcount and role eligibility; per-role minimums are not enforced yet.",
-     "params": {"type": "object", "properties": {"shift_id": {"type": "string", "x-ref": "Shift"}, "role_id": {"type": "string", "x-ref": "Role"}, "count": {"type": "integer", "minimum": 0, "maximum": 50}}, "required": ["shift_id", "role_id", "count"], "additionalProperties": false}},
-
-    {"key": "custom", "group": "Other", "label": "Custom (needs manual review)",
-     "sentence": "{text}",
-     "scopes": ["PROGRAM", "INSTITUTION", "ROLE", "PARTICIPANT"], "levels": ["HARD", "SOFT"], "solver": "stored",
-     "solverNote": "Free text that could not be mapped to a template. Never enforced automatically.",
-     "params": {"type": "object", "properties": {"text": {"type": "string", "minLength": 1}}, "required": ["text"], "additionalProperties": false}}
+    {
+      "key": "max_hours_rolling_week",
+      "group": "Duty hours",
+      "label": "Max clinical hours in any 7 days",
+      "sentence": "No more than {hours} scheduled clinical hours in any rolling 7-day period",
+      "scopes": [
+        "PROGRAM"
+      ],
+      "levels": [
+        "HARD"
+      ],
+      "solver": "enforced",
+      "enforcedScopes": [
+        "PROGRAM"
+      ],
+      "params": {
+        "type": "object",
+        "properties": {
+          "hours": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 168
+          }
+        },
+        "required": [
+          "hours"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "key": "one_day_off_in_seven",
+      "group": "Duty hours",
+      "label": "One 24-hour period off every 7 days",
+      "sentence": "At least one continuous 24 hours free of shifts and academic time in every 7 days",
+      "scopes": [
+        "PROGRAM"
+      ],
+      "levels": [
+        "HARD"
+      ],
+      "solver": "enforced",
+      "enforcedScopes": [
+        "PROGRAM"
+      ],
+      "solverNote": "Always on in the engine; it cannot be switched off.",
+      "params": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      }
+    },
+    {
+      "key": "rest_equal_to_shift_length",
+      "group": "Duty hours",
+      "label": "Rest after a shift relative to its length",
+      "sentence": "Time off after a shift is at least {ratio} x the length of that shift",
+      "scopes": [
+        "PROGRAM"
+      ],
+      "levels": [
+        "HARD"
+      ],
+      "solver": "enforced",
+      "enforcedScopes": [
+        "PROGRAM"
+      ],
+      "params": {
+        "type": "object",
+        "properties": {
+          "ratio": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 3
+          }
+        },
+        "required": [
+          "ratio"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "key": "min_hours_off_between_shifts",
+      "group": "Duty hours",
+      "label": "Min hours off between shifts",
+      "sentence": "At least {hours} hours off between shifts",
+      "scopes": [
+        "PROGRAM",
+        "ROLE",
+        "PARTICIPANT"
+      ],
+      "levels": [
+        "HARD",
+        "SOFT"
+      ],
+      "solver": "enforced",
+      "enforcedScopes": [
+        "PROGRAM"
+      ],
+      "solverNote": "Enforced as a hard program-wide rule. Role, participant and soft versions are stored only.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "hours": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 72
+          }
+        },
+        "required": [
+          "hours"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "key": "max_days_in_a_row",
+      "group": "Duty hours",
+      "label": "Max days worked in a row",
+      "sentence": "No more than {n} days worked in a row (a day with a shift; a night counts on the day it belongs to; the previous interval's last week counts too)",
+      "scopes": [
+        "PROGRAM",
+        "ROLE",
+        "PARTICIPANT"
+      ],
+      "levels": [
+        "HARD"
+      ],
+      "solver": "enforced",
+      "enforcedScopes": [
+        "PROGRAM",
+        "ROLE",
+        "PARTICIPANT"
+      ],
+      "params": {
+        "type": "object",
+        "properties": {
+          "n": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 13
+          }
+        },
+        "required": [
+          "n"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "key": "max_consecutive_shifts",
+      "group": "Duty hours",
+      "label": "Max consecutive shifts",
+      "sentence": "No more than {n} shifts on consecutive days",
+      "scopes": [
+        "PROGRAM",
+        "INSTITUTION",
+        "ROLE",
+        "PARTICIPANT"
+      ],
+      "levels": [
+        "HARD",
+        "SOFT"
+      ],
+      "solver": "stored",
+      "params": {
+        "type": "object",
+        "properties": {
+          "n": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 14
+          }
+        },
+        "required": [
+          "n"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "key": "max_shifts_per_week",
+      "group": "Duty hours",
+      "label": "Max shifts per week",
+      "sentence": "No more than {n} shifts in any 7 days",
+      "scopes": [
+        "PROGRAM",
+        "ROLE",
+        "PARTICIPANT"
+      ],
+      "levels": [
+        "HARD",
+        "SOFT"
+      ],
+      "solver": "stored",
+      "params": {
+        "type": "object",
+        "properties": {
+          "n": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 7
+          }
+        },
+        "required": [
+          "n"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "key": "max_shifts_per_interval",
+      "group": "Duty hours",
+      "label": "Max shifts per interval",
+      "sentence": "No more than {n} shifts in the interval",
+      "scopes": [
+        "PROGRAM",
+        "ROLE",
+        "PARTICIPANT"
+      ],
+      "levels": [
+        "HARD"
+      ],
+      "solver": "enforced",
+      "enforcedScopes": [
+        "PROGRAM",
+        "ROLE",
+        "PARTICIPANT"
+      ],
+      "params": {
+        "type": "object",
+        "properties": {
+          "n": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 62
+          }
+        },
+        "required": [
+          "n"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "key": "no_night_then_day",
+      "group": "Duty hours",
+      "label": "No night shift followed by a day shift",
+      "sentence": "A night shift is never followed by a day shift the next day",
+      "scopes": [
+        "PROGRAM",
+        "ROLE",
+        "PARTICIPANT"
+      ],
+      "levels": [
+        "HARD",
+        "SOFT"
+      ],
+      "solver": "stored",
+      "solverNote": "In practice already covered by the rest rule and the forward-rotation goal.",
+      "params": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      }
+    },
+    {
+      "key": "max_nights_per_interval",
+      "group": "Nights",
+      "label": "Max night shifts per interval",
+      "sentence": "No more than {n} night shifts in the interval",
+      "scopes": [
+        "PROGRAM",
+        "ROLE",
+        "PARTICIPANT"
+      ],
+      "levels": [
+        "HARD"
+      ],
+      "solver": "enforced",
+      "enforcedScopes": [
+        "PROGRAM"
+      ],
+      "params": {
+        "type": "object",
+        "properties": {
+          "n": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 31
+          }
+        },
+        "required": [
+          "n"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "key": "max_night_runs",
+      "group": "Nights",
+      "label": "Max runs of nights per interval",
+      "sentence": "No more than {n} separate runs of night shifts in the interval",
+      "scopes": [
+        "PROGRAM"
+      ],
+      "levels": [
+        "HARD"
+      ],
+      "solver": "enforced",
+      "enforcedScopes": [
+        "PROGRAM"
+      ],
+      "params": {
+        "type": "object",
+        "properties": {
+          "n": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10
+          }
+        },
+        "required": [
+          "n"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "key": "max_nights_in_a_row",
+      "group": "Nights",
+      "label": "Max nights in a row",
+      "sentence": "No more than {n} night shifts in a row",
+      "scopes": [
+        "PROGRAM",
+        "ROLE",
+        "PARTICIPANT"
+      ],
+      "levels": [
+        "HARD",
+        "SOFT"
+      ],
+      "solver": "stored",
+      "solverNote": "The engine has the soft version as part of 'single run of nights'.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "n": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 14
+          }
+        },
+        "required": [
+          "n"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "key": "single_night_run",
+      "group": "Nights",
+      "label": "One run of nights per person",
+      "sentence": "Aim for a single run of nights per person, at most {max_length} nights long",
+      "scopes": [
+        "PROGRAM"
+      ],
+      "levels": [
+        "SOFT"
+      ],
+      "solver": "enforced",
+      "enforcedScopes": [
+        "PROGRAM"
+      ],
+      "params": {
+        "type": "object",
+        "properties": {
+          "max_length": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 14
+          }
+        },
+        "required": [
+          "max_length"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "key": "min_days_between_night_runs",
+      "group": "Nights",
+      "label": "Days between runs of nights",
+      "sentence": "At least {days} days between runs of nights",
+      "scopes": [
+        "PROGRAM"
+      ],
+      "levels": [
+        "SOFT"
+      ],
+      "solver": "enforced",
+      "enforcedScopes": [
+        "PROGRAM"
+      ],
+      "params": {
+        "type": "object",
+        "properties": {
+          "days": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 28
+          }
+        },
+        "required": [
+          "days"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "key": "max_night_fraction",
+      "group": "Nights",
+      "label": "Max share of nights",
+      "sentence": "No more than {percent}% of a person's scheduled hours are nights",
+      "scopes": [
+        "PROGRAM"
+      ],
+      "levels": [
+        "SOFT"
+      ],
+      "solver": "enforced",
+      "enforcedScopes": [
+        "PROGRAM"
+      ],
+      "params": {
+        "type": "object",
+        "properties": {
+          "percent": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "percent"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "key": "no_night_before_time_off",
+      "group": "Nights",
+      "label": "No night shift heading into vacation",
+      "sentence": "No overnight shift that ends on a vacation day",
+      "scopes": [
+        "PROGRAM"
+      ],
+      "levels": [
+        "SOFT"
+      ],
+      "solver": "enforced",
+      "enforcedScopes": [
+        "PROGRAM"
+      ],
+      "params": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      }
+    },
+    {
+      "key": "forward_rotation",
+      "group": "Pattern and fairness",
+      "label": "Forward (clockwise) rotation",
+      "sentence": "Shifts rotate forward (day, evening, swing, night); avoid backward steps from one day to the next",
+      "scopes": [
+        "PROGRAM"
+      ],
+      "levels": [
+        "SOFT"
+      ],
+      "solver": "enforced",
+      "enforcedScopes": [
+        "PROGRAM"
+      ],
+      "params": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      }
+    },
+    {
+      "key": "balance_shift_categories",
+      "group": "Pattern and fairness",
+      "label": "Balance days / evenings / nights",
+      "sentence": "Each person's days, evenings and nights stay within {tolerance_shifts} shift(s) of their fair share",
+      "scopes": [
+        "PROGRAM"
+      ],
+      "levels": [
+        "SOFT"
+      ],
+      "solver": "enforced",
+      "enforcedScopes": [
+        "PROGRAM"
+      ],
+      "params": {
+        "type": "object",
+        "properties": {
+          "tolerance_shifts": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 10
+          }
+        },
+        "required": [
+          "tolerance_shifts"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "key": "balance_areas",
+      "group": "Pattern and fairness",
+      "label": "Balance two areas",
+      "sentence": "Each person's shifts in {area_a} and {area_b} stay within {tolerance_shifts} of each other",
+      "scopes": [
+        "INSTITUTION"
+      ],
+      "levels": [
+        "SOFT"
+      ],
+      "solver": "enforced",
+      "enforcedScopes": [
+        "INSTITUTION"
+      ],
+      "solverNote": "One tolerance applies to every area pair; the engine uses the smallest one set.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "area_a": {
+            "type": "string",
+            "x-ref": "Area"
+          },
+          "area_b": {
+            "type": "string",
+            "x-ref": "Area"
+          },
+          "tolerance_shifts": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10
+          }
+        },
+        "required": [
+          "area_a",
+          "area_b",
+          "tolerance_shifts"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "key": "consecutive_days_off",
+      "group": "Pattern and fairness",
+      "label": "Keep days off together",
+      "sentence": "Prefer two or more days off in a row over isolated single days off",
+      "scopes": [
+        "PROGRAM"
+      ],
+      "levels": [
+        "SOFT"
+      ],
+      "solver": "enforced",
+      "enforcedScopes": [
+        "PROGRAM"
+      ],
+      "params": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      }
+    },
+    {
+      "key": "weekends_per_interval",
+      "group": "Pattern and fairness",
+      "label": "Weekends worked per interval",
+      "sentence": "Between {min} and {max} weekends worked in the interval",
+      "scopes": [
+        "PROGRAM",
+        "ROLE",
+        "PARTICIPANT"
+      ],
+      "levels": [
+        "HARD",
+        "SOFT"
+      ],
+      "solver": "stored",
+      "params": {
+        "type": "object",
+        "properties": {
+          "min": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 6
+          },
+          "max": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 6
+          }
+        },
+        "required": [
+          "min",
+          "max"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "key": "unavailable",
+      "group": "Availability",
+      "label": "Cannot work (by date, weekday, time, shift type or site)",
+      "sentence": "Cannot work the matching shifts. Leave a field empty to match everything",
+      "scopes": [
+        "PROGRAM",
+        "ROLE",
+        "PARTICIPANT"
+      ],
+      "levels": [
+        "HARD",
+        "SOFT"
+      ],
+      "solver": "enforced",
+      "enforcedScopes": [
+        "PROGRAM",
+        "ROLE",
+        "PARTICIPANT"
+      ],
+      "solverNote": "Enforced when hard. The date range comes from the rule's active dates. Soft versions are stored only. Chief days are this template: Thursdays from 00:00 for 13 hours.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "weekdays": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 6
+            },
+            "uniqueItems": true
+          },
+          "start": {
+            "type": "string",
+            "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$"
+          },
+          "hours": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 24
+          },
+          "category_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "x-ref": "ShiftCategory"
+            }
+          },
+          "institution_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "x-ref": "Institution"
+            }
+          }
+        },
+        "dependentRequired": {
+          "start": [
+            "hours"
+          ],
+          "hours": [
+            "start"
+          ]
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "key": "work_with",
+      "group": "People",
+      "label": "Must / must not work with",
+      "sentence": "{together} be on shift at the same time as {participant_id}",
+      "scopes": [
+        "PARTICIPANT"
+      ],
+      "levels": [
+        "HARD",
+        "SOFT"
+      ],
+      "solver": "stored",
+      "params": {
+        "type": "object",
+        "properties": {
+          "participant_id": {
+            "type": "string",
+            "x-ref": "Participant"
+          },
+          "together": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "participant_id",
+          "together"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "key": "required_headcount",
+      "group": "Staffing",
+      "label": "Required headcount per shift per role",
+      "sentence": "{shift_id} needs at least {count} of {role_id}",
+      "scopes": [
+        "PROGRAM",
+        "INSTITUTION"
+      ],
+      "levels": [
+        "HARD",
+        "SOFT"
+      ],
+      "solver": "stored",
+      "solverNote": "The engine staffs each shift to its total headcount and role eligibility; per-role minimums are not enforced yet.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "shift_id": {
+            "type": "string",
+            "x-ref": "Shift"
+          },
+          "role_id": {
+            "type": "string",
+            "x-ref": "Role"
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 50
+          }
+        },
+        "required": [
+          "shift_id",
+          "role_id",
+          "count"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "key": "custom",
+      "group": "Other",
+      "label": "Custom (needs manual review)",
+      "sentence": "{text}",
+      "scopes": [
+        "PROGRAM",
+        "INSTITUTION",
+        "ROLE",
+        "PARTICIPANT"
+      ],
+      "levels": [
+        "HARD",
+        "SOFT"
+      ],
+      "solver": "stored",
+      "solverNote": "Free text that could not be mapped to a template. Never enforced automatically.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "additionalProperties": false
+      }
+    }
   ],
   "systemRules": [
-    {"template": "max_hours_rolling_week", "level": "HARD", "params": {"hours": 60}},
-    {"template": "one_day_off_in_seven", "level": "HARD", "params": {}},
-    {"template": "rest_equal_to_shift_length", "level": "HARD", "params": {"ratio": 1}},
-    {"template": "max_nights_per_interval", "level": "HARD", "params": {"n": 8}},
-    {"template": "max_night_runs", "level": "HARD", "params": {"n": 2}},
-    {"template": "forward_rotation", "level": "SOFT", "priority": 1, "weight": 10, "params": {}},
-    {"template": "balance_shift_categories", "level": "SOFT", "priority": 2, "weight": 10, "params": {"tolerance_shifts": 1}},
-    {"template": "min_days_between_night_runs", "level": "SOFT", "priority": 3, "weight": 10, "params": {"days": 7}},
-    {"template": "no_night_before_time_off", "level": "SOFT", "priority": 4, "weight": 10, "params": {}},
-    {"template": "max_night_fraction", "level": "SOFT", "priority": 5, "weight": 10, "params": {"percent": 45}},
-    {"template": "consecutive_days_off", "level": "SOFT", "priority": 7, "weight": 10, "params": {}},
-    {"template": "single_night_run", "level": "SOFT", "priority": 8, "weight": 10, "params": {"max_length": 6}}
+    {
+      "template": "max_hours_rolling_week",
+      "level": "HARD",
+      "params": {
+        "hours": 60
+      }
+    },
+    {
+      "template": "one_day_off_in_seven",
+      "level": "HARD",
+      "params": {}
+    },
+    {
+      "template": "rest_equal_to_shift_length",
+      "level": "HARD",
+      "params": {
+        "ratio": 1
+      }
+    },
+    {
+      "template": "max_nights_per_interval",
+      "level": "HARD",
+      "params": {
+        "n": 8
+      }
+    },
+    {
+      "template": "max_night_runs",
+      "level": "HARD",
+      "params": {
+        "n": 2
+      }
+    },
+    {
+      "template": "max_days_in_a_row",
+      "level": "HARD",
+      "params": {
+        "n": 6
+      }
+    },
+    {
+      "template": "forward_rotation",
+      "level": "SOFT",
+      "priority": 1,
+      "weight": 10,
+      "params": {}
+    },
+    {
+      "template": "balance_shift_categories",
+      "level": "SOFT",
+      "priority": 2,
+      "weight": 10,
+      "params": {
+        "tolerance_shifts": 1
+      }
+    },
+    {
+      "template": "min_days_between_night_runs",
+      "level": "SOFT",
+      "priority": 3,
+      "weight": 10,
+      "params": {
+        "days": 7
+      }
+    },
+    {
+      "template": "no_night_before_time_off",
+      "level": "SOFT",
+      "priority": 4,
+      "weight": 10,
+      "params": {}
+    },
+    {
+      "template": "max_night_fraction",
+      "level": "SOFT",
+      "priority": 5,
+      "weight": 10,
+      "params": {
+        "percent": 45
+      }
+    },
+    {
+      "template": "consecutive_days_off",
+      "level": "SOFT",
+      "priority": 7,
+      "weight": 10,
+      "params": {}
+    },
+    {
+      "template": "single_night_run",
+      "level": "SOFT",
+      "priority": 8,
+      "weight": 10,
+      "params": {
+        "max_length": 6
+      }
+    }
   ],
-  "builtInPriorities": {"balance_areas": 6, "requests_off": 9}
+  "builtInPriorities": {
+    "balance_areas": 6,
+    "requests_off": 9
+  }
 }

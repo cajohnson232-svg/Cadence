@@ -435,7 +435,7 @@ export default async function ScheduleReview({ params, searchParams }: { params:
             <h2 className="mb-2 text-base font-semibold">How it was checked</h2>
             {rep?.validator ? (
               <ul className="list-disc space-y-1 pl-5 text-sm" data-testid="checks">
-                <li>After the engine finished, a separate checker went through every person&apos;s shifts by the clock: hours in every rolling 7 days, rest after each shift, a 24-hour break each week, night limits, vacation, days off, academic time and eligibility. It shares no code with the part that builds the schedule. Result: <strong>{violations.length === 0 ? "no hard rule broken" : `${violations.length} broken`}</strong>.</li>
+                <li>After the engine finished, a separate checker went through every person&apos;s shifts by the clock: hours in every rolling 7 days, rest after each shift, a 24-hour break each week, night limits, vacation, days off, academic time and eligibility. It shares no code with the part that builds the schedule. The site also checks every shift against the role grids as they are now, on its own. Result: <strong>{violations.length === 0 ? "no hard rule broken" : `${violations.length} broken`}</strong>.</li>
                 {under.map((u, i) => <li key={i} className="text-red-700">{u}</li>)}
                 {((rep.precheck?.warnings ?? []) as string[]).map((w, i) => <li key={"w" + i} className="text-muted">Capacity note: {w}</li>)}
                 <li className="text-muted">Engine: {rep.engine.backend === "cpsat" ? "OR-Tools CP-SAT" : "HiGHS"}, {rep.engine.strategy === "full" ? "whole program at once" : "improved a part at a time"}, {Number(rep.engine.decisions).toLocaleString("en-US")} yes/no decisions.</li>

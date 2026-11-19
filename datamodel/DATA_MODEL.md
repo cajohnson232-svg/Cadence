@@ -72,13 +72,14 @@ One `Rule` table. Each rule has a scope (program / institution / role / particip
 parameters, hard or soft (with weight and priority), active dates, notes, who created it, the original
 plain-English text if it came from the AI box, and a needs-review flag.
 
-Templates live in `rule-templates.json` (24 so far), each with a parameter schema the form and the database
-compile step both validate against. A new program starts with 12 system rules (the ACGME limits and your
+Templates live in `rule-templates.json` (25 so far), each with a parameter schema the form and the database
+compile step both validate against. A new program starts with 13 system rules (the ACGME limits and your
 ordered goals), which are editable like any other rule.
 
 | Template | Hard / soft | Engine today |
 |---|---|---|
 | Max clinical hours in any 7 days | hard | enforced |
+| Max days worked in a row (6 by default; 18 Nov 2026) | hard | enforced (program, role or participant; the tightest applies) |
 | One 24-hour period off every 7 days | hard | enforced (always on) |
 | Rest after a shift relative to its length | hard | enforced |
 | Min hours off between shifts | hard / soft | enforced (hard, program-wide) |
@@ -175,6 +176,11 @@ test suites still pass. The 13-block test matrix was not re-run after these addi
 * **ScheduledShift**: `backup` marks an on-call backup day; it is not a worked shift.
 * **PriorShift** (new): shifts entered by hand for the 7 days before an interval when no previous schedule is published.
 * Database rules: a share is 0-100, a window's end is after its start, a required-off window ends after it starts.
+
+**18 Nov 2026.** A 13th standard rule, "Max days worked in a row" (hard, 6), added to every existing program by
+migration 0006. Shift eligibility: the compile step now sends every person's list of allowed shifts from the role
+grid every time (inactive shifts included), and the app checks every stored shift against the grid itself before
+publishing. A special-day extra shift must copy a normal shift, whose grid then applies.
 
 `compile_interval.py` is now a legacy reference kept for `test_datamodel.py`; the app compiles with
 `web/src/lib/compile.ts`, which handles everything above.

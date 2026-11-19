@@ -7,6 +7,7 @@ Rule                  HARD  enforced                 Whole program              
 Rule                  HARD  enforced                 Whole program              Time off after a shift is at least 1 x the length of that shift
 Rule                  HARD  enforced                 Whole program              No more than 8 night shifts in the interval
 Rule                  HARD  enforced                 Whole program              No more than 2 separate runs of night shifts in the interval
+Rule                  HARD  enforced                 Whole program              No more than 6 days worked in a row (a day with a shift; a night counts on the day it belongs to; the previous interval's last week counts too)
 Rule                  SOFT  enforced                 Whole program              Shifts rotate forward (day, evening, swing, night); avoid backward steps from one day to the next
 Rule                  SOFT  enforced                 Whole program              Each person's days, evenings and nights stay within 1 shift(s) of their fair share
 Rule                  SOFT  enforced                 Whole program              At least 7 days between runs of nights

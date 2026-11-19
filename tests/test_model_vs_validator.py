@@ -20,12 +20,18 @@ configs = {
     "8h+10h+12h, late overnights, excused academic time": make_config((8, 10, 12), 12, seed=22, late_nights=True,
                                                                          academic_policy="excused"),
 }
+# a few residents with a personal limit on days worked in a row (the program's is 6)
+for cfg in configs.values():
+    for i, r in enumerate(cfg["residents"]):
+        if i % 5 == 2:
+            r["max_consecutive_days"] = 4
 # give a third of the residents a target split between the two sites (exercises "site split")
 for cfg in configs.values():
     sites = sorted({t.get("site", "") for t in cfg["shift_templates"]})
     for i, r in enumerate(cfg["residents"]):
         if i % 3 == 0 and len(sites) >= 2 and not r.get("sites"):
             r["site_share"] = {sites[0]: 60 + 5 * (i % 4), sites[1]: 40 - 5 * (i % 4)}
+runs_seen = 0
 for name, cfg in configs.items():
     P = Problem(cfg)
     share = P.balance_share()
@@ -40,7 +46,7 @@ for name, cfg in configs.items():
             if trial % 2:      # a plausible stretch pattern: work a few, rest a few
                 pick, d = [], rng.randrange(3)
                 while d < len(days):
-                    run = rng.randint(1, 6)
+                    run = rng.randint(1, 8)                       # up to 8: exercises "at most 6 days in a row"
                     pick += days[d:d + run]; d += run + rng.randint(1, 3)
                 pick = pick[:rng.randint(1, r.shifts_max + 1)]
                 cat = rng.choice(list(P.cat_order))
@@ -67,6 +73,9 @@ for name, cfg in configs.items():
                     assert abs(b.value(v, st) - soft[st]) < 1e-6, (name, r.name, st, b.value(v, st), soft[st])
             else:
                 illegal += 1
+                runs_seen += any("days worked in a row" in m for m in viol)
     print(f"{name}: model and validator agree on {legal + illegal} random schedules "
           f"({legal} legal with identical soft scores, {illegal} illegal)")
+assert runs_seen, "no schedule exercised the days-in-a-row limit"
+print(f"{runs_seen} of the illegal schedules break the days-in-a-row limit")
 print("MODEL AND VALIDATOR AGREE")

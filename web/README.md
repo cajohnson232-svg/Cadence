@@ -119,6 +119,19 @@ from that schedule and keeps working on the soft goals; no goal gets worse unles
 is a new draft ("Run 3 (optimized from Run 2)"); the original is unchanged. Backup is chosen again for the new
 schedule, so its backup days can differ. A schedule whose inputs have changed since cannot be optimized.
 
+**Two hard rules tightened (18 Nov 2026).**
+
+* **Shift eligibility.** Every person is now sent to the engine with their own list of allowed shifts, taken from the
+  role grid every time (before, the list was only sent when the grid could not be expressed as "PGY-x and up"). On top
+  of the engine's own checker, the site checks every stored shift and backup day against the role grids as they are
+  now: any mismatch is listed on the review page and the schedule cannot be published, even with the tick (for
+  example when a grid is changed after the schedule was generated). An extra shift on a special staffing day must say
+  which normal shift it is like; that shift's grid decides who can work it. Optimize matches shifts by id, so two
+  shifts with the same name and times are never confused.
+* **At most 6 days worked in a row** (a new standard rule, "Max days worked in a row", hard). A day counts when a
+  shift belongs to it, so a night counts on the evening it starts; backup (on call) does not count; the previous
+  interval's last week does. It can be set per role or person to a smaller number; the tightest applies.
+
 **Claude in the app.** With `ANTHROPIC_API_KEY` set, three things are read by Claude: Other Restrictions, backup rules
 and special-day changes. What is sent: the sentence typed, and the names and ids of the program's roles, shifts,
 categories and institutions needed to understand it; for Other Restrictions only, also participants' names and ids
@@ -206,6 +219,7 @@ Everything signs in through the real sign-in form.
     npm run db:reset && node e2e/schedule.cjs          # 50 checks: generate -> review -> publish, with the real engine (about 3 minutes)
     npm run db:reset && node e2e/assignments.cjs       # 56 checks: assignments, academic exceptions, special days, backup, previous interval, optimize (about 3 minutes)
     npm run db:reset && npx tsx tests/engine-check.ts  # 46 checks on the engine runner, including optimize, no browser needed
+    npm run db:reset && npx tsx tests/hard-rules-check.ts  # 19 checks: role grid and 6 days in a row, both solvers and optimize (about 4 minutes)
     npx tsx tests/ai-check.ts                          # 15 checks on the Claude readers against a stand-in API server (and the fallback)
     npm run db:reset && npx tsx tests/accounts-check.ts  # 61 checks on sign-in, links, limits, setup and start over, no browser needed
     npm run db:reset && python tests/verify_stored.py  # the stored schedule passes the independent rule check

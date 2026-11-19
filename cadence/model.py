@@ -99,6 +99,15 @@ class Block:
             if len(byday.get(d, ())) > 1:
                 self._row(work(d), hi=1)
 
+        # at most L days worked in a row: every L+1 consecutive days hold at most L shifts (one per day, above).
+        # Only windows where every day has a possible shift can break it; history days are fixed at what was worked.
+        L = P.max_run(r)
+        if L:
+            for w in range(-H, n - L):
+                window = range(w, w + L + 1)
+                if w + L >= 0 and all(byday.get(e) for e in window):
+                    self._row([t for e in window for t in work(e)], hi=L)
+
         # rest after a shift >= its own length (carries across the block boundary)
         for a in mine:
             need = P.rest_after(a)

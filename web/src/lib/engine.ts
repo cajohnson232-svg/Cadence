@@ -91,7 +91,7 @@ export async function startRun(intervalId: string, userId: string | null, budget
       const start0 = (await db.interval.findUniqueOrThrow({ where: { id: intervalId } })).startDate.getTime();
       const rows = await db.scheduledShift.findMany({ where: { scheduleId: from.scheduleId, participantId: { not: null }, backup: false } });
       const min = (d: Date) => Math.round((d.getTime() - start0) / 60000);
-      writeFileSync(join(dir, "initial.json"), JSON.stringify(rows.map((r) => ({ resident: r.participantId, day: Math.round((r.dutyDate.getTime() - start0) / 86400000), name: r.name, start: min(r.startsAt), end: min(r.endsAt) }))));
+      writeFileSync(join(dir, "initial.json"), JSON.stringify(rows.map((r) => ({ resident: r.participantId, ref: r.shiftId ?? undefined, day: Math.round((r.dutyDate.getTime() - start0) / 86400000), name: r.name, start: min(r.startsAt), end: min(r.endsAt) }))));
       extra.push("--initial", join(dir, "initial.json"));
     }
     const log = openSync(join(dir, "engine.log"), "a");

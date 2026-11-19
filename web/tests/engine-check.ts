@@ -70,7 +70,8 @@ async function main() {
   ok((await publishChecks(a.scheduleId, PROG))!.stale, "approving a request afterwards marks the schedule as built on old inputs");
   const a2 = await startRun(IV, null, { seconds: 10, polish: 5 });
   if (!a2.ok) throw new Error(a2.error);
-  ok((await until(a2.scheduleId, 120)) === "DONE", "a second schedule can be generated while one is published");
+  const st2 = await until(a2.scheduleId, 120);
+  ok(st2 === "DONE", `a second schedule can be generated while one is published (${st2}${st2 === "DONE" ? "" : ": " + ((await db.schedule.findUniqueOrThrow({ where: { id: a2.scheduleId } })).error ?? "")})`);
   ok(!(await publishChecks(a2.scheduleId, PROG))!.stale, "a schedule generated after the change is up to date");
   const chen = await db.scheduledShift.count({ where: { scheduleId: a2.scheduleId, backup: false, participantId: "p03", startsAt: { gte: new Date("2027-01-12T00:00:00Z"), lt: new Date("2027-01-13T00:00:00Z") } } });
   const repl = await publish(a2.scheduleId, PROG, false);

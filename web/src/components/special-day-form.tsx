@@ -116,7 +116,7 @@ export function SpecialDayForm({ id, institutions, categories, shifts, initial, 
                   <td className="py-1.5 pr-2"><Select aria-label={`Change ${i + 1}`} value={l.action} className="w-36" onChange={(e) => setLine(i, { action: e.target.value as DayLine["action"] })}>
                     <option value="CHANGE">Changes</option><option value="REMOVE">Does not run</option><option value="ADD">Extra shift</option></Select></td>
                   <td className="py-1.5 pr-2"><Select aria-label={`Shift ${i + 1}`} value={l.shiftId ?? ""} className="w-48" onChange={(e) => setLine(i, { shiftId: e.target.value || null })}>
-                    <option value="">{l.action === "ADD" ? "A new shift" : "Choose…"}</option>{here.map((x) => <option key={x.id} value={x.id}>{x.name}{x.active ? "" : " (inactive)"}</option>)}</Select></td>
+                    <option value="">{l.action === "ADD" ? "Like which shift?" : "Choose…"}</option>{here.map((x) => <option key={x.id} value={x.id}>{x.name}{x.active ? "" : " (inactive)"}</option>)}</Select></td>
                   {l.action === "REMOVE" ? <td colSpan={5} className="py-1.5 pr-2 text-xs text-muted">{l.shiftId ? `${byId.get(l.shiftId)?.name} does not run that day.` : ""}</td> : <>
                     <td className="py-1.5 pr-2">{l.action === "ADD" && <Input aria-label={`Name ${i + 1}`} value={l.name ?? ""} className="w-40" onChange={(e) => setLine(i, { name: e.target.value || null })} />}</td>
                     <td className="py-1.5 pr-2"><Select aria-label={`Category ${i + 1}`} value={l.categoryId ?? ""} className="w-32" onChange={(e) => setLine(i, { categoryId: e.target.value || null })}>

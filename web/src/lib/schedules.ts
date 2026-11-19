@@ -8,12 +8,29 @@ import { fingerprint } from "./engine";
  *   blocked   cannot be published at all (not finished, or it breaks a hard rule)
  *   caveats   can be published, but only with an explicit tick (open shifts, or inputs changed since it was generated)
  */
+/** Every stored shift checked against the role grid as it is now, independently of the engine: a person may only be on
+ *  a shift (or a backup day) their role is eligible for. A special-day shift uses the grid of the shift it copies. */
+export async function eligibilityProblems(sid: string): Promise<string[]> {
+  const rows = await db.scheduledShift.findMany({ where: { scheduleId: sid, participantId: { not: null } },
+    include: { participant: { include: { role: true } }, specialShift: true }, orderBy: [{ startsAt: "asc" }, { id: "asc" }] });
+  const gridIds = [...new Set(rows.map((r) => r.shiftId ?? r.specialShift?.shiftId).filter((x): x is string => !!x))];
+  const grid = new Map((await db.shiftRole.findMany({ where: { shiftId: { in: gridIds } } })).map((g) => [g.shiftId + "|" + g.roleId, g.eligible]));
+  const out: string[] = [];
+  for (const r of rows) {
+    const p = r.participant!, gid = r.shiftId ?? r.specialShift?.shiftId ?? null;
+    const when = `${r.name}${r.backup ? " (backup)" : ""} on ${r.dutyDate.toISOString().slice(0, 10)}`;
+    if (!gid) out.push(`Role grid: ${p.firstName} ${p.lastName} is on ${when}, which has no role grid (a special-day shift that copies no normal shift).`);
+    else if (grid.get(gid + "|" + p.roleId) === false) out.push(`Role grid: ${p.firstName} ${p.lastName} (${p.role.name}) is on ${when}, but ${p.role.name} is not eligible for it.`);
+  }
+  return out;
+}
+
 export async function publishChecks(sid: string, programId: string) {
   const sch = await db.schedule.findFirst({ where: { id: sid, interval: { programId } }, include: { interval: true } });
   if (!sch) return null;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const rep = sch.report as any;
-  const violations: string[] = rep?.validator?.hard_violations ?? [];
+  const violations: string[] = [...(rep?.validator?.hard_violations ?? []), ...(sch.runStatus === "DONE" ? await eligibilityProblems(sid) : [])];
   const open = await db.scheduledShift.count({ where: { scheduleId: sid, participantId: null, backup: false } });
   const backupOpen = await db.scheduledShift.count({ where: { scheduleId: sid, participantId: null, backup: true } });
   const stale = !!sch.inputHash && sch.inputHash !== fingerprint((await compileInterval(sch.intervalId)).config);

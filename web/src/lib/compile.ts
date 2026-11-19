@@ -76,6 +76,7 @@ export async function compileInterval(intervalId: string) {
     max_nights: one("max_nights_per_interval", "n", 8), max_night_runs: one("max_night_runs", "n", 2),
     min_gap_between_night_runs: one("min_days_between_night_runs", "days", 7), max_night_fraction_pct: one("max_night_fraction", "percent", 45),
     soft_max_nights_in_run: one("single_night_run", "max_length", 6), balance_tolerance_shifts: one("balance_shift_categories", "tolerance_shifts", 1),
+    max_consecutive_days: one("max_days_in_a_row", "n", 6),
   };
   const rest = live.filter((r) => r.template === "min_hours_off_between_shifts").map((r) => r.params.hours);
   if (rest.length) cfgRules.min_rest_hours = Math.max(...rest);
@@ -121,7 +122,8 @@ export async function compileInterval(intervalId: string) {
       const base = ln.shiftId ? shifts[ln.shiftId] ?? shiftsAll.find((x) => x.id === ln.shiftId) : undefined;     // a replacement may copy an inactive shift
       if ((ln.action === "CHANGE" || ln.action === "REMOVE") && sd.mode === "MODIFY" && ln.shiftId && tmpl[ln.shiftId]) tmpl[ln.shiftId].except_days.push(d);
       if (ln.action === "REMOVE") continue;
-      const src: Any = base ? { ...base } : { minParticipants: 1 };
+      if (!base) warn.push(`${sd.name}: an extra shift (${ln.name ?? "unnamed"}) does not say which normal shift it is like, so nobody can be scheduled on it. Open the special day and choose one.`);
+      const src: Any = base ? { ...base } : { minParticipants: 1, id: `line:${ln.id}` };
       src.institutionId = sd.institutionId;
       const t = template(src, { categoryId: ln.categoryId, areaId: ln.areaId, startMinute: ln.startMinute, durationMinutes: ln.durationMinutes,
         countsAsPreviousDay: ln.countsAsPreviousDay, minParticipants: ln.minParticipants, maxParticipants: ln.maxParticipants, name: ln.name ?? `${base?.name} (${sd.name})` });
@@ -175,15 +177,18 @@ export async function compileInterval(intervalId: string) {
     const caps = live.filter((r) => r.template === "max_shifts_per_interval" && (r.scope === "PROGRAM" || r.roleId === p.roleId || r.participantId === p.id)).map((r) => r.params.n);
     hi = Math.max(0, Math.min(hi + delta, ...caps)); lo = Math.max(0, Math.min(lo + delta, hi));
     const level = roles[p.roleId].level;
-    const allowed = shiftList.filter((s) => isElig(s.id, p.roleId)).map((s) => s.id);
-    const simple = shiftList.filter((s) => level >= tmpl[s.id].min_pgy).map((s) => s.id);
+    // the role grid, sent explicitly for every person and every shift (inactive ones too: a special day can copy one).
+    // The engine treats it as a hard rule; min_pgy is only a summary used by its capacity pre-check.
+    const allowed = shiftsAll.filter((s) => isElig(s.id, p.roleId)).map((s) => s.id);
     const res: Any = {
       id: p.id, name: pname(p.id), pgy: level, shifts_min: lo, shifts_max: hi, sites: [...sites].map((i) => insts[i].shortCode).sort(),
       vacation: [] as number[], mandatory_off: Array.from({ length: n }, (_, i) => i).filter((i) => !here.has(i)), requests_off: {} as Record<string, number>, unavailable: [...extra] as Any[],
     };
     if (Object.keys(shares).length) res.site_share = shares;
     if (noNights) res.unavailable.push({ label: "no nights", categories: catList.filter((c) => c.isNight).map((c) => c.name) });
-    if ([...allowed].sort().join() !== [...simple].sort().join()) res.only_shifts = [...allowed].sort();
+    res.only_shifts = [...allowed].sort();
+    const runCaps = live.filter((r) => r.template === "max_days_in_a_row" && (r.roleId === p.roleId && r.scope === "ROLE" || r.participantId === p.id && r.scope === "PARTICIPANT")).map((r) => r.params.n);
+    if (runCaps.length && Math.min(...runCaps) < cfgRules.max_consecutive_days) res.max_consecutive_days = Math.min(...runCaps);
     compiled.push({ origin: "Assignment", id: mine[0].id, template: "shift_count", scope: "PARTICIPANT", appliesTo: res.name, level: "HARD", engine: "enforced",
       text: `${lo}-${hi} shifts at ${res.sites.join(", ")}` + (delta ? ` (adjusted ${delta > 0 ? "+" : ""}${delta}: ${mineAdj.map((x) => x.reason || "no reason given").join("; ")})` : "")
         + (here.size < n ? `; present ${here.size} of ${n} days` : "") + (extra.length ? `; ${extra.map((u) => u.label).join("; ")}` : ""), note: notes.join(" ") || undefined });

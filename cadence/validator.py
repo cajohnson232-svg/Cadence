@@ -66,6 +66,18 @@ def check_resident(P: Problem, r: Resident, shifts, check_min=True):
     for d, group in per_day.items():
         if len(group) > 1 and any(not s.hist for s in group):
             V.append(f"two shifts on {P.label(d)}")
+    # days worked in a row (a day counts when a shift belongs to it; the previous block's last week counts too)
+    L = P.max_run(r)
+    if L:
+        worked_days, cur_days = sorted(per_day), {s.day for s in cur}
+        run = []
+        for d in worked_days + [None]:
+            if run and (d is None or d != run[-1] + 1):
+                if len(run) > L and cur_days & set(run):
+                    V.append(f"{len(run)} days worked in a row, {P.label(run[0])} to {P.label(run[-1])} (limit {L})")
+                run = []
+            if d is not None:
+                run.append(d)
     # rest after a shift >= (ratio x) its own length
     for a, b in zip(shifts, shifts[1:]):
         if b.hist or a.day == b.day:

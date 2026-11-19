@@ -52,8 +52,7 @@ export async function saveSpecialDay(id: string | null, p: DayPayload): Promise<
     if (!["ADD", "CHANGE", "REMOVE"].includes(l.action)) return { error: `${n}: unknown change.` };
     if (p.mode === "REPLACE" && l.action !== "ADD") return { error: "A replaced day only lists the shifts that run." };
     if (l.shiftId && !shifts.has(l.shiftId)) return { error: `${n}: that shift is not at ${inst.name}.` };
-    if (l.action !== "ADD" && !l.shiftId) return { error: `${n}: choose which normal shift changes.` };
-    if (l.action === "ADD" && !l.shiftId && !(l.name?.trim() && l.categoryId && l.startMinute != null && l.durationMinutes)) return { error: `${n}: a new shift needs a name, category, start and length (or copy a normal shift).` };
+    if (!l.shiftId) return { error: l.action === "ADD" ? `${n}: choose the normal shift this extra one is like. Its role grid decides who can work it; the name, times and people can still be changed.` : `${n}: choose which normal shift changes.` };
     if (l.categoryId && !cats.has(l.categoryId)) return { error: `${n}: unknown category.` };
     if (l.startMinute != null && !(l.startMinute >= 0 && l.startMinute < 1440)) return { error: `${n}: start time is not valid.` };
     if (l.durationMinutes != null && !(l.durationMinutes > 0 && l.durationMinutes <= 2880)) return { error: `${n}: length is not valid.` };

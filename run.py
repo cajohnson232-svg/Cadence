@@ -50,11 +50,13 @@ for e in errors: print("PRE-CHECK IMPOSSIBLE:", e)
 for w in warnings: print("pre-check warning:", w)
 initial = None
 if a.initial:
-    # match each stored shift to a shift of these inputs by day, name and clock times
+    # match each stored shift to a shift of these inputs by day, shift id (when given), name and clock times,
+    # so two shifts that share a name and times (at two hospitals, say) can never be confused
     slot = {(s.day, s.name, s.start, s.end): s.key for s in P.slot_list}
+    by_ref = {(s.day, s.ref, s.name, s.start, s.end): s.key for s in P.slot_list}
     initial, missing = {r.id: [] for r in P.residents}, 0
     for e in json.load(open(a.initial)):
-        k = slot.get((e["day"], e["name"], e["start"], e["end"]))
+        k = by_ref.get((e["day"], str(e["ref"]), e["name"], e["start"], e["end"])) if e.get("ref") else slot.get((e["day"], e["name"], e["start"], e["end"]))
         if k is None or e["resident"] not in initial:
             missing += 1
         else:

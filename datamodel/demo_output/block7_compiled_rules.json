@@ -146,6 +146,22 @@
  {
   "origin": "Rule",
   "id": "sys05",
+  "template": "max_days_in_a_row",
+  "text": "No more than 6 days worked in a row (a day with a shift; a night counts on the day it belongs to; the previous interval's last week counts too)",
+  "scope": "PROGRAM",
+  "applies_to": "Whole program",
+  "level": "HARD",
+  "weight": null,
+  "priority": null,
+  "from": null,
+  "to": null,
+  "source": "SYSTEM",
+  "engine": "enforced",
+  "note": null
+ },
+ {
+  "origin": "Rule",
+  "id": "sys06",
   "template": "forward_rotation",
   "text": "Shifts rotate forward (day, evening, swing, night); avoid backward steps from one day to the next",
   "scope": "PROGRAM",
@@ -161,7 +177,7 @@
  },
  {
   "origin": "Rule",
-  "id": "sys06",
+  "id": "sys07",
   "template": "balance_shift_categories",
   "text": "Each person's days, evenings and nights stay within 1 shift(s) of their fair share",
   "scope": "PROGRAM",
@@ -177,7 +193,7 @@
  },
  {
   "origin": "Rule",
-  "id": "sys07",
+  "id": "sys08",
   "template": "min_days_between_night_runs",
   "text": "At least 7 days between runs of nights",
   "scope": "PROGRAM",
@@ -193,7 +209,7 @@
  },
  {
   "origin": "Rule",
-  "id": "sys08",
+  "id": "sys09",
   "template": "no_night_before_time_off",
   "text": "No overnight shift that ends on a vacation day",
   "scope": "PROGRAM",
@@ -209,7 +225,7 @@
  },
  {
   "origin": "Rule",
-  "id": "sys09",
+  "id": "sys10",
   "template": "max_night_fraction",
   "text": "No more than 45% of a person's scheduled hours are nights",
   "scope": "PROGRAM",
@@ -257,7 +273,7 @@
  },
  {
   "origin": "Rule",
-  "id": "sys10",
+  "id": "sys11",
   "template": "consecutive_days_off",
   "text": "Prefer two or more days off in a row over isolated single days off",
   "scope": "PROGRAM",
@@ -273,7 +289,7 @@
  },
  {
   "origin": "Rule",
-  "id": "sys11",
+  "id": "sys12",
   "template": "single_night_run",
   "text": "Aim for a single run of nights per person, at most 6 nights long",
   "scope": "PROGRAM",

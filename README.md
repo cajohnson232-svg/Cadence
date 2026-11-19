@@ -60,6 +60,7 @@ Everything below is input. `tests/configs/*.json` are complete examples.
 | `history` | shifts worked in the last 7 days of the previous block (carried across the boundary) |
 | `rules` | weekly hours cap, rest ratio, night cap, night-run limits, 45% night share, balance tolerances |
 | `residents[].site_share` | (17 Nov 2026) target percent of a resident's shifts at each site, e.g. `{"MHH": 60, "LBJ": 40}`. A soft goal, third in priority ("site split"), met within `rules.site_share_tolerance_shifts` (default 1) shifts |
+| `rules.max_consecutive_days`, `residents[].max_consecutive_days` | (18 Nov 2026) hard: most days worked in a row (default 6; 0 = no limit). A day counts when a shift belongs to it (a night counts on the evening it starts); the previous block's last week counts too. A personal value overrides the program's |
 | `backup` | (17 Nov 2026) backup lines: name, start, hours, weekdays, headcount, eligible resident ids, and `rules`: `max_per_person`, `min_days_between`, `rest_before_hours`, `rest_after_hours`. See "Backup" below |
 
 ## Added for the data model (13 Nov 2026)
@@ -122,7 +123,7 @@ extra or over-long night runs, requests off missed.
 
 Hard rules: coverage and PGY eligibility, one shift per day (with the nights exception above), rest >= length of
 the prior shift, weekly clinical-hours cap on every rolling 7x24h window, one 24h period free of shifts and attended
-academic time in every 7 days, night cap and number of night runs, vacation, mandatory days off, chief time,
+academic time in every 7 days, night cap and number of night runs, at most 6 days worked in a row (18 Nov 2026), vacation, mandatory days off, chief time,
 academic time per the admin setting, contract maximum. All carried across the block boundary through `history`.
 
 ## Test results
@@ -169,6 +170,12 @@ Reading the table:
   the block, and the solver still returns a rule-clean schedule with 32 shifts open, each with reasons.
   32 is exactly the capacity shortfall (936 shifts against 904 of contract capacity), so no schedule could leave fewer.
 
+**Re-run 18 Nov 2026 with the 6-days-in-a-row limit** (three of the hardest scenarios, run side by side on two CPU
+cores): 8h, margin-0pct and midnight-overnights-8h all came out with 0 open shifts, 0 hard-rule violations and
+nobody under contract minimum. Some low-priority goals scored worse than in the table (isolated days off 103 vs 70
+for 8h, 61 vs 22 for margin-0pct), partly from the new limit and partly from sharing the processor. The other ten
+scenarios have not been re-run.
+
 `results/` has, per scenario: the schedule grid (HTML), the schedule (CSV) and the full run report (TXT).
 
 ## Checks on the checker
@@ -180,6 +187,10 @@ Reading the table:
   This check found one discrepancy, now fixed: the model scored a backward rotation by the size of the step
   (night to day = 3) while the validator counted it once. Both now count each backward step once. Earlier results
   were unaffected because backward rotations were zero in every block.
+* `tests.test_rules` also covers the days-in-a-row limit (18 Nov 2026): seven days in a row refused even with a full
+  24h break inside them, six allowed, a personal limit, a run that starts in the previous block, and the exact
+  model agreeing on each. In `tests.test_model_vs_validator`, 1,670 of the random schedules break it, and model and
+  validator agree on every one.
 * During the test runs the validator rejected none of the moves proposed by the exact solver.
 
 ## Engine

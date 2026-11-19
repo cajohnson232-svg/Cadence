@@ -50,7 +50,7 @@ const ok = (cond, what) => { if (cond) { pass++; console.log("ok   " + what); } 
   ok(/Nguyen[\s\S]*-2[\s\S]*Chief duties[\s\S]*12–14/.test(await p.locator('[data-testid="adjustments-table"]').innerText()), "adjustments tab shows the adjusted contract (Nguyen 12-14)");
   await go("/intervals/iv_7?tab=rules");
   const rules = await p.locator('[data-testid="compiled-rules"]').innerText();
-  ok((await p.locator('[data-testid="compiled-rules"] tbody tr').count()) === 58, "compiled rules lists all 58 entries for Block 7");
+  ok((await p.locator('[data-testid="compiled-rules"] tbody tr').count()) === 59, "compiled rules lists all 59 entries for Block 7");
   ok(rules.includes("Cannot work Night shifts at LBJ Hospital") && rules.includes("Stored only") && rules.includes("Needs review") && rules.includes("Not included (pending)"), "compiled rules marks enforced / stored only / needs review / not included");
   ok((await text()).includes("1 time-off request(s) are still pending"), "compiled rules warns about pending requests");
   await shot("hub-compiled-rules");
@@ -111,7 +111,7 @@ const ok = (cond, what) => { if (cond) { pass++; console.log("ok   " + what); } 
 
   // ── rules ───────────────────────────────────────────────────────────────
   await go("/rules");
-  ok((await p.locator('[data-testid="rules-table"] tbody tr').count()) === 23, "rules list shows all 23 rules, hard and soft together");
+  ok((await p.locator('[data-testid="rules-table"] tbody tr').count()) === 24, "rules list shows all 24 rules, hard and soft together");
   await shot("rules-list");
   await go("/rules?engine=stored+only"); ok((await p.locator('[data-testid="rules-table"] tbody tr').count()) >= 2, "rules can be filtered by engine status");
   await go("/rules/new");

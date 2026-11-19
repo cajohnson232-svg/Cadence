@@ -19,7 +19,7 @@ Your spec gave the stack as an example and asked for the simplest conventional o
 |---|---|
 | `schema.prisma` | 29 tables, 16 enums. Identical to `web/prisma/schema.prisma` |
 | `constraints.sql` | Rules Prisma cannot express (no overlapping assignments or intervals, end after start, one published schedule per interval, rule scope must match its target, ...) |
-| `rule-templates.json` | The rule template library: 24 templates with typed parameters, and the 12 system rules a new program starts with |
+| `rule-templates.json` | The rule template library: 25 templates with typed parameters, and the 13 system rules a new program starts with |
 | `compile_interval.py` | LEGACY (since 17 Nov 2026): the first database -> engine input bridge, kept for `test_datamodel.py`. The app uses `web/src/lib/compile.ts`, which also handles backup shifts, site split and personal academic days |
 | `seed_demo.py` / `seed_demo.sql` | A made-up program that uses every table |
 | `test_datamodel.py` | End-to-end test against a real PostgreSQL server |

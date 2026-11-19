@@ -110,9 +110,11 @@ function mockDay(text: string, shifts: DayShift[], categories: Named[] = []): Da
     } else if (/\b(add|extra|another|one more|additional)\b/.test(s) && (shift || time(s) != null)) {
       const st = time(s);
       const cat = categories.find((c) => new RegExp(`\\b${c.name.toLowerCase()}\\b`).test(s));
-      lines.push({ action: "ADD", shiftId: shift?.id ?? null, name: shift ? `${shift.name} (extra)` : `Extra ${cat ? cat.name.toLowerCase() : ""} shift`.replace("  ", " "), categoryId: shift?.categoryId ?? cat?.id ?? null,
+      const like = shift ?? shifts.find((x) => cat && x.categoryId === cat.id) ?? null;     // who may work it comes from the shift it copies
+      lines.push({ action: "ADD", shiftId: like?.id ?? null, name: shift ? `${shift.name} (extra)` : `Extra ${cat ? cat.name.toLowerCase() : ""} shift`.replace("  ", " "), categoryId: shift?.categoryId ?? cat?.id ?? null,
         startMinute: st, durationMinutes: hours ? Math.round(Number(hours[1]) * 60) : null, minParticipants: people ? numOf(people[1]) : null });
       why.push(`An extra ${shift ? shift.name : "shift"}${st != null ? ` at ${hhmm(st)}` : ""}${hours ? ` for ${hours[1]}h` : ""}.`);
+      if (!shift) why.push(like ? `It copies ${like.name}, so the same roles can work it; change that if another shift fits better.` : "Choose which normal shift it is like: its role grid decides who can work it.");
     } else if (shift && (time(s) != null || hours || people)) {
       const st = /\b(start|starts|begin|begins|at|from|moved? to)\b/.test(s) ? time(s) : null;
       lines.push({ action: "CHANGE", shiftId: shift.id, name: null, categoryId: null, startMinute: st, durationMinutes: hours ? Math.round(Number(hours[1]) * 60) : null, minParticipants: people ? numOf(people[1]) : null });
@@ -132,7 +134,7 @@ export async function proposeSpecialDay(text: string, ctx: { today: string; date
         "The shifts listed with 'runs that day' normally run on that date. Each line is one of:",
         "REMOVE: a normal shift does not run (shift_id required).",
         "CHANGE: a normal shift runs differently (shift_id required; set only what changes: start HH:MM, hours, people).",
-        "ADD: an extra shift that day (shift_id of a shift to copy, or null; name; category_id; start; hours; people).",
+        "ADD: an extra shift that day. shift_id is required: the normal shift it is most like (same area and kind of work), whose role eligibility decides who may work it; then name, category_id, start, hours, people as needed.",
         "Use only ids from the lists. Leave a field null when the text does not say. explanation: short plain sentences, including anything you could not express.",
       ].join("\n"),
       user: `${contextBlock({ today: ctx.today, categories: ctx.categories,

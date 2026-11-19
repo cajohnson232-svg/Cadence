@@ -225,7 +225,7 @@ const ME = { name: "Dana Director", email: "dana@riverside-em.example", password
   await go(admin, "/participants"); const none = /Nothing|No participants|0 /.test(await text(admin)) && (await admin.locator("tbody tr td a").count()) === 0;
   await go(admin, "/rules"); const rules = await admin.locator("tbody tr").count();
   await go(admin, "/intervals"); const intervals = await admin.locator("tbody tr td a").count();
-  ok(none && rules === 12 && intervals === 0, "no participants or intervals are left; the 12 standard rules are back");
+  ok(none && rules === 13 && intervals === 0, "no participants or intervals are left; the 13 standard rules are back");
   await go(admin, "/access");
   const left = await admin.getByTestId("people-with-access").locator("tbody tr").evaluateAll((r) => r.map((x) => x.getAttribute("data-email")).sort().join());
   ok(left === `${ME.email},sam.second@example.org`, "both administrators keep their sign-in; everyone else's access is gone");
