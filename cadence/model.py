@@ -12,10 +12,10 @@ from collections import defaultdict
 from math import gcd
 import numpy as np
 from scipy import sparse
-from .problem import Problem, Resident, DAY, STAGES
+from .problem import Problem, Resident, DAY, STAGES, COVER_STAGES
 
 WEEK = 7 * DAY
-BLOCK_STAGES = STAGES[1:]          # "open shifts" lives on the coverage rows
+BLOCK_STAGES = [s for s in STAGES if s not in COVER_STAGES]     # the others live on the coverage rows
 
 
 class Block:

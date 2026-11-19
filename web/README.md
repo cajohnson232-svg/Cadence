@@ -139,6 +139,15 @@ schedule, so its backup days can differ. A schedule whose inputs have changed si
   shift belongs to it, so a night counts on the evening it starts; backup (on call) does not count; the previous
   interval's last week does. It can be set per role or person to a smaller number; the tightest applies.
 
+**Minimum and maximum headcount (19 Nov 2026).** A shift's minimum headcount must be filled; places above it, up
+to its maximum, are optional. The engine uses an optional place only where it gets someone to their minimum number
+of shifts without breaking any rule ("Extra people only where needed", the goal right after "Everyone reaches their
+minimum shifts"): a second person on an LBJ evening or night set to 1-2, or a PGY-3 on a 0-1 Dugout so that PGY-1s and
+PGY-2s keep the shifts they need. It uses no more of them than that, and never more than the maximum. Optional places
+it does not use are not stored and are not open shifts; the review's "Shifts filled" counts required places and
+lists extra people separately. A shift with a minimum of 0 is a shift nobody has to work. The Coverage tab shows
+ranges as 1–2.
+
 **Claude in the app.** With `ANTHROPIC_API_KEY` set, three things are read by Claude: Other Restrictions, backup rules
 and special-day changes. What is sent: the sentence typed, and the names and ids of the program's roles, shifts,
 categories and institutions needed to understand it; for Other Restrictions only, also participants' names and ids
@@ -238,6 +247,7 @@ Everything signs in through the real sign-in form.
     npm run db:reset && node e2e/assignments.cjs       # 56 checks: assignments, academic exceptions, special days, backup, previous interval, optimize (about 3 minutes)
     npm run db:reset && npx tsx tests/engine-check.ts  # 46 checks on the engine runner, including optimize, no browser needed
     npm run db:reset && npx tsx tests/hard-rules-check.ts  # 25 checks: role grid, institutions and 6 days in a row, both solvers and optimize, the pre-run check, the review page's causes (about 4 minutes)
+    npm run db:reset && npx tsx tests/optional-places-check.ts  # 11 checks: shifts that can take 1-2 and a 0-1 Dugout used to reach everyone's minimum (about 2 minutes)
     npm run db:reset && npx tsx tests/grid-property-check.ts  # 150 random role grids (with roles sharing levels): what the engine is told equals the grid and institutions, for every person and shift
     npx tsx tests/ai-check.ts                          # 15 checks on the Claude readers against a stand-in API server (and the fallback)
     npm run db:reset && npx tsx tests/accounts-check.ts  # 61 checks on sign-in, links, limits, setup and start over, no browser needed

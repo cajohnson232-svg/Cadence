@@ -95,7 +95,7 @@ const ok = (cond, what) => { if (cond) { pass++; console.log("ok   " + what); } 
   ok(/Night GP 21:00–07:00/.test(await sgrid.innerText()) && /LBJ Hospital/.test(await sgrid.innerText()), "shifts are grouped by institution with their times");
   await shot("schedule-review-shifts");
   await p.getByRole("tab", { name: /Goals & checks/ }).click(); await p.waitForURL(/view=details/); await p.waitForLoadState("networkidle");
-  ok((await p.getByTestId("goals-table").locator("tbody tr").count()) === 12, "goals are listed in priority order (12)");
+  ok((await p.getByTestId("goals-table").locator("tbody tr").count()) === 13, "goals are listed in priority order (13)");
   ok(/Every shift filled\s+Fully met/.test(await p.getByTestId("goals-table").innerText()), "the first goal, every shift filled, is met");
   ok((await p.getByTestId("people-table").locator("tbody tr").count()) === 18, "per-person figures for all 18");
   ok(/shares no code with the part that builds the schedule/.test(await p.getByTestId("checks").innerText()), "the page says how the schedule was checked");

@@ -16,8 +16,8 @@ from collections import defaultdict
 from math import gcd
 import numpy as np
 from scipy import sparse
-from .problem import Problem, DAY, STAGES, clock
-from .model import Block
+from .problem import Problem, DAY, STAGES, COVER_STAGES, clock
+from .model import BLOCK_STAGES, Block
 from . import mip, validator
 
 WEEK = 7 * DAY
@@ -153,6 +153,24 @@ def greedy(P: Problem):
                 load[r.id].append(s); byday[r.id][s.day] = s
                 count[r.id] += 1; nights[r.id] += is_n
                 break
+    # anyone still under their contract minimum may take an optional place (a shift with room above its minimum)
+    filled = defaultdict(int)
+    for keys in assignment.values():
+        for k in keys:
+            filled[k] += 1
+    spare = [s for s in P.slot_list if s.cap > s.need]
+    for r in sorted(R, key=lambda r: count[r.id] - r.shifts_min):
+        for s in rng.sample(spare, len(spare)):
+            if count[r.id] >= r.shifts_min:
+                break
+            if filled[s.key] >= s.cap or s.key not in ok_static[r.id] or s.day in byday[r.id]:
+                continue
+            if P.is_night(s) and nights[r.id] >= P.rules.max_nights:
+                continue
+            if not validator.check_resident(P, r, load[r.id] + [s], check_min=False):
+                assignment[r.id].append(s.key)
+                load[r.id].append(s); byday[r.id][s.day] = s
+                count[r.id] += 1; nights[r.id] += P.is_night(s); filled[s.key] += 1
     return assignment
 
 
@@ -173,7 +191,7 @@ def polish(P: Problem, assignment, seconds=60.0, seed=0):
 
     def vec(rid, bd):
         m = validator.soft_resident(P, P.by_id[rid], P.hist[rid] + list(bd.values()), share)
-        return tuple(m[s] for s in STAGES[1:])
+        return tuple(m[s] for s in BLOCK_STAGES)
 
     def feas(rid, bd):
         return not validator.check_resident(P, P.by_id[rid], P.hist[rid] + list(bd.values()), check_min=False)
@@ -249,6 +267,7 @@ def polish(P: Problem, assignment, seconds=60.0, seed=0):
         return False
 
     V = {rid: vec(rid, cur[rid]) for rid in ids}
+    spare = [s for s in P.slot_list if s.cap > s.need]
     moves, improved = 0, True
     while improved and time.time() - t0 < seconds:
         improved = False
@@ -268,6 +287,17 @@ def polish(P: Problem, assignment, seconds=60.0, seed=0):
                         filled[s.key] += 1; moves += 1; improved = True
                     else:
                         break
+        for rid in rng.sample(ids, len(ids)):                # under contract minimum: take an optional place
+            r = P.by_id[rid]
+            for s in rng.sample(spare, len(spare)):
+                if len(cur[rid]) >= r.shifts_min or time.time() - t0 > seconds:
+                    break
+                if filled[s.key] >= s.cap or s.key not in ok[rid] or s.day in cur[rid]:
+                    continue
+                nb = with_(cur[rid], s.day, s)
+                if feas(rid, nb):
+                    cur[rid], V[rid] = nb, vec(rid, nb)
+                    filled[s.key] += 1; moves += 1; improved = True
         for d in rng.sample(range(P.n_days), P.n_days):
             if time.time() - t0 > seconds:
                 break
@@ -299,6 +329,28 @@ def polish(P: Problem, assignment, seconds=60.0, seed=0):
             improved = True
     moves += compound(1500 * len(ids))
     return {rid: [s.key for s in cur[rid].values()] for rid in ids}, moves
+
+
+def trim_extras(P: Problem, assignment):
+    """Give back optional places (people beyond a shift's minimum headcount) held by someone who is above their
+    contract minimum. Taking a shift away never breaks a hard rule and cannot add an open shift or a shortfall,
+    so this only ever improves the goals in priority order. Returns (assignment, places given back)."""
+    A = {rid: list(keys) for rid, keys in assignment.items()}
+    filled = defaultdict(int)
+    for keys in A.values():
+        for k in keys:
+            filled[k] += 1
+    dropped = 0
+    for s in P.slot_list:
+        if filled[s.key] <= s.need:
+            continue
+        holders = sorted((rid for rid, keys in A.items() if s.key in keys), key=lambda rid: P.by_id[rid].shifts_min - len(A[rid]))
+        for rid in holders:
+            if filled[s.key] <= s.need:
+                break
+            if len(A[rid]) > P.by_id[rid].shifts_min:
+                A[rid].remove(s.key); filled[s.key] -= 1; dropped += 1
+    return A, dropped
 
 
 # ---------------------------------------------------------------------------
@@ -335,8 +387,10 @@ class Scheduler:
         return {rid: [b.keys[j] for j in np.nonzero(self.x[rid] > 0.5)[0]] for rid, b in self.blocks.items()}
 
     def total(self, stage, K=None):
-        if stage == STAGES[0]:
-            return float(sum(s.need - self.filled[s.key] for s in self.P.slot_list))
+        if stage == "open shifts":
+            return float(sum(max(0, s.need - self.filled[s.key]) for s in self.P.slot_list))
+        if stage == "extra places used":
+            return float(sum(max(0, self.filled[s.key] - s.need) for s in self.P.slot_list))
         return sum(self.blocks[rid].value(self.v[rid], stage) for rid in (K or self.blocks))
 
     def model_check(self):
@@ -372,30 +426,37 @@ class Scheduler:
             rlo.append(b.rlo); rhi.append(b.rhi)
             nnz += b.A.nnz; off += b.nv
         nblock = off
-        # coverage rows: residents in K + open == what the rest of the program leaves uncovered
+        # coverage rows: residents in K + open - extra == the minimum headcount less what the rest of the program
+        # covers. open = places still missing below the minimum; extra = optional places used above it, at most
+        # (maximum - minimum)
         ei, ec, ep, elo, ehi = [], [], [0], [], []
-        open_cols, open_now = [], []
+        open_cols, extra_cols, open_now, extra_now = [], [], [], []
         for key, cols in cover.items():
-            need = P.slots[key].need - (self.filled[key] - mine[key])
-            ei += cols + [off]; ec += [1.0] * (len(cols) + 1); ep.append(len(ei))
+            s = P.slots[key]
+            need = s.need - (self.filled[key] - mine[key])
+            total_now = self.filled[key]
+            ei += cols + [off, off + 1]; ec += [1.0] * len(cols) + [1.0, -1.0]; ep.append(len(ei))
             elo.append(need); ehi.append(need)
-            open_cols.append(off); open_now.append(need - mine[key])
-            lbs.append(np.zeros(1)); ubs.append(np.array([max(need, 0.0)])); ints.append(np.array([True]))
-            off += 1
-        warm.append(np.array(open_now))
+            open_cols.append(off); extra_cols.append(off + 1)
+            open_now.append(max(0.0, s.need - total_now)); extra_now.append(max(0.0, total_now - s.need))
+            lbs.append(np.zeros(2)); ubs.append(np.array([max(need, 0.0), float(s.cap - s.need)])); ints.append(np.array([True, True]))
+            warm.append(np.array([open_now[-1], extra_now[-1]]))
+            off += 2
         nv = off
         cost = np.zeros(nv)
 
         def terms(stage):
-            if stage == STAGES[0]:
+            if stage == "open shifts":
                 return np.array(open_cols, dtype=np.int64), np.ones(len(open_cols))
+            if stage == "extra places used":
+                return np.array(extra_cols, dtype=np.int64), np.ones(len(extra_cols))
             ii, cc = [], []
             for rid in K:
                 i, c, _ = B[rid].goal[stage]
                 ii.append(i + offs[rid]); cc.append(c)
             return np.concatenate(ii), np.concatenate(cc)
 
-        before = [self._region_value(s, K, open_now) for s in STAGES]
+        before = [self._region_value(s, K, (open_now, extra_now)) for s in STAGES]
         for i in range(j):                                   # earlier goals may not get worse
             ti, tc = terms(STAGES[i])
             if len(ti):
@@ -443,14 +504,16 @@ class Scheduler:
         for rid, xn in newx.items():
             for q in np.nonzero(xn != self.x[rid])[0]:
                 delta[B[rid].keys[q]] += xn[q] - self.x[rid][q]
-        if any(self.filled[k] + dv > P.slots[k].need + 1e-9 for k, dv in delta.items()):
+        if any(self.filled[k] + dv > P.slots[k].cap + 1e-9 for k, dv in delta.items()):
             self.stats["rejected: overfill"] += 1
             return False, status
         oldx = {rid: self.x[rid] for rid in newx}; oldv = {rid: self.v[rid] for rid in newx}
         for rid in newx:
             self.x[rid], self.v[rid] = newx[rid], newv[rid]
-        open_after = [o - delta.get(key, 0.0) for key, o in zip(cover, open_now)]
-        after = [self._region_value(s, K, open_after) for s in STAGES]
+        tot_after = {key: self.filled[key] + delta.get(key, 0.0) for key in cover}
+        open_after = [max(0.0, P.slots[key].need - tot_after[key]) for key in cover]
+        extra_after = [max(0.0, tot_after[key] - P.slots[key].need) for key in cover]
+        after = [self._region_value(s, K, (open_after, extra_after)) for s in STAGES]
         lead_b = [round(before[i] / self.scale[STAGES[i]], 6) for i in range(j + 1)]
         lead_a = [round(after[i] / self.scale[STAGES[i]], 6) for i in range(j + 1)]
         tail_b = sum(before[i] / self.scale[STAGES[i]] for i in range(j + 1, len(STAGES)))
@@ -463,9 +526,11 @@ class Scheduler:
             self.filled[k] += int(round(dv))
         return lead_a < lead_b, status
 
-    def _region_value(self, stage, K, open_list):
-        if stage == STAGES[0]:
-            return float(sum(open_list))
+    def _region_value(self, stage, K, cover_now):
+        if stage == "open shifts":
+            return float(sum(cover_now[0]))
+        if stage == "extra places used":
+            return float(sum(cover_now[1]))
         return sum(self.blocks[rid].value(self.v[rid], stage) for rid in K)
 
     def _night_days(self, rid):
@@ -489,6 +554,17 @@ class Scheduler:
             rest = [rid for rid in ids if rid not in K]
             K |= set(rng.sample(rest, min(len(rest), max(0, m - len(K)))))
             return sorted(K), range(max(0, s.day - w), min(n, s.day + w + 1))
+        if stage == "extra places used":                  # a shift above its minimum: its people, and others nearby
+            over = [s for s in P.slot_list if self.filled[s.key] > s.need]
+            if not over:
+                return None, None
+            s = rng.choice(over)
+            on = [rid for rid in ids if s.key in self.blocks[rid].xpos and self.x[rid][self.blocks[rid].xpos[s.key]] > 0.5]
+            m, w = [(10, 3), (16, 2), (6, 6), (24, None)][it % 4]
+            cnt = {q: float(self.x[q].sum()) for q in ids}
+            rest = [rid for rid in ids if rid not in on and cnt[rid] > P.by_id[rid].shifts_min] or [rid for rid in ids if rid not in on]
+            K = set(on) | set(rng.sample(rest, min(len(rest), max(0, m - len(on)))))
+            return sorted(K), (None if w is None else range(max(0, s.day - w), min(n, s.day + w + 1)))
         hot = []
         for rid in ids:
             i, c, d = self.blocks[rid].goal[stage]
@@ -551,6 +627,10 @@ class Scheduler:
             g, moves = polish(P, g, polish_seconds, seed=self.rng.randrange(10 ** 6))
             self.load(g)
             self.log(f"Swap polish: {moves} improving moves, {int(self.total(STAGES[0]))} shifts open ({time.time() - tp:.0f}s)")
+        g, dropped = trim_extras(P, self.assignment())
+        if dropped:
+            self.load(g)
+            self.log(f"Optional places not needed for anyone's contract minimum: {dropped} given back")
         bad = self.model_check()
         if bad:
             self.log(f"WARNING: warm-start schedule breaks {bad} model rows - model and validator disagree")

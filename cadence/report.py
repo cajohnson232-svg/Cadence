@@ -83,7 +83,7 @@ def result(P: Problem, run, violations, opens, short, pre_errors, pre_warnings, 
         t = P.templates[s.key[1]]
         slots.append({"day": s.day, "cal": s.cal, "template": s.key[1], "ref": s.ref, "special_ref": t.get("special_ref"),
                       "name": s.name, "site": s.site, "pod": s.pod, "category": s.cat, "start": s.start, "end": s.end,
-                      "need": s.need, "assigned": sorted(who.get(s.key, []))})
+                      "need": s.need, "max": s.cap, "assigned": sorted(who.get(s.key, []))})
     share = P.balance_share()
     people = []
     for r in P.residents:
@@ -112,7 +112,8 @@ def result(P: Problem, run, violations, opens, short, pre_errors, pre_warnings, 
                    "decisions": run["decisions"]},
         "precheck": {"errors": list(pre_errors), "warnings": list(pre_warnings)},
         "validator": {"hard_violations": list(violations), "open_shifts": sum(n for _, n in opens),
-                      "total_shifts": sum(s.need for s in P.slot_list), "under_contract_minimum": list(short)},
+                      "total_shifts": sum(s.need for s in P.slot_list), "under_contract_minimum": list(short),
+                      "optional_places": sum(s.cap - s.need for s in P.slot_list), "extra_places_used": validator.extra_places(P, A)},
         "duty": validator.duty_stats(P, A),
         "goals": goals,
         "open": [{"day": o["shift"].day, "cal": o["shift"].cal, "template": o["shift"].key[1], "name": o["shift"].name,

@@ -145,8 +145,8 @@ def validate(P: Problem, assignment):
     open_slots = []
     for s in P.slot_list:
         f = filled.get(s.key, 0)
-        if f > s.need:
-            V.append(f"{s.name} {P.label(s.cal)}: {f} residents assigned, only {s.need} needed")
+        if f > s.cap:
+            V.append(f"{s.name} {P.label(s.cal)}: {f} residents assigned, at most {s.cap} allowed")
         elif f < s.need:
             open_slots.append((s, s.need - f))
     for r in P.residents:
@@ -210,6 +210,7 @@ def soft_metrics(P: Problem, assignment):
     for r in P.residents:
         for k, v in soft_resident(P, r, worked(P, r, assignment), share).items():
             tot[k] = tot.get(k, 0) + v
+    tot["extra places used"] = extra_places(P, assignment)
     return tot
 
 
@@ -228,3 +229,12 @@ def duty_stats(P: Problem, assignment):
                 slack = (b.start - a.end) - a.dur
                 tight_rest = slack if tight_rest is None else min(tight_rest, slack)
     return {"peak_rolling_7day_hours": peak / 60, "smallest_rest_margin_hours": (tight_rest or 0) / 60}
+
+
+def extra_places(P: Problem, assignment):
+    """Optional places used: people on a shift beyond its minimum headcount (never beyond its maximum)."""
+    filled = {}
+    for keys in assignment.values():
+        for k in keys:
+            filled[k] = filled.get(k, 0) + 1
+    return sum(max(0, filled.get(s.key, 0) - s.need) for s in P.slot_list)

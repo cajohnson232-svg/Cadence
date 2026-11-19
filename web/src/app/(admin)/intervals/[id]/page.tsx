@@ -114,7 +114,9 @@ function Coverage({ c, days }: { c: C; days: Date[] }) {
   return (
     <>
       <p className="mb-2 text-sm text-muted">
-        Required headcount for every shift on every day, with special staffing days and academic time applied.
+        Required headcount for every shift on every day, with special staffing days and academic time applied. A range
+        (1–2) means the first number must be filled and the extra places are used only where they get someone to their
+        minimum number of shifts; 0–1 is a shift nobody has to work.
         <span className="ml-2 inline-flex items-center gap-1"><span className="inline-block size-2.5 rounded-sm bg-amber-200" /> changed by a special staffing day</span>
         <span className="ml-2 inline-flex items-center gap-1"><span className="inline-block size-2.5 rounded-sm bg-sky-200" /> academic time that day</span>
       </p>

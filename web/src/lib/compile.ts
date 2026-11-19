@@ -115,7 +115,6 @@ export async function compileInterval(intervalId: string) {
   const tmpl: Record<string, Any> = Object.fromEntries(shiftList.map((s) => [s.id, template(s)]));
   for (const s of shiftList) {
     if (eligRows.filter((e) => e.shiftId === s.id).reduce((a, e) => a + e.requiredCount, 0)) warn.push(`${s.name}: per-role headcounts are stored but the engine staffs to the total only.`);
-    if (s.maxParticipants > s.minParticipants) warn.push(`${s.name}: the engine staffs to the minimum headcount (${s.minParticipants}).`);
   }
   const dated: Any[] = [];
   const special = await db.specialStaffingDay.findMany({ where: { programId: pid, date: { gte: start, lte: end } }, include: { shifts: { orderBy: { id: "asc" } } }, orderBy: { id: "asc" } });

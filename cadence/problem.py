@@ -40,9 +40,13 @@ class Shift:
     site: str = ""
     pod: str = ""
     min_pgy: int = 1
-    need: int = 1
+    need: int = 1            # people it must have (the minimum headcount); unfilled = an open shift
     hist: bool = False
     ref: str = ""            # id of the shift template this came from (for per-person eligibility)
+    cap: int = 0             # most people it may have (the maximum headcount); places above `need` are optional
+
+    def __post_init__(self):
+        self.cap = max(self.cap, self.need)
 
     @property
     def dur(self) -> int:
@@ -156,13 +160,15 @@ class Problem:
                         continue
                 elif self.weekday(d) not in t.get("weekdays", range(7)) or d in t.get("except_days", ()):
                     continue
-                if int(t.get("headcount", 1)) <= 0:
+                need = max(0, int(t.get("headcount", 1)))
+                cap = max(need, int(t.get("max_headcount") or need))      # optional places above the minimum
+                if cap <= 0:
                     continue
                 base = (d + prev) * DAY + st
                 self.slots[(d, k)] = Shift((d, k), t["name"], d, base, base + dur,
                                            t["category"], t.get("site", ""), t.get("pod", ""),
-                                           int(t.get("min_pgy", 1)), int(t.get("headcount", 1)),
-                                           ref=str(t.get("ref", t["name"])))
+                                           int(t.get("min_pgy", 1)), need,
+                                           ref=str(t.get("ref", t["name"])), cap=cap)
         self.slot_list = sorted(self.slots.values(), key=lambda s: (s.day, s.start, s.key))
 
         # ---- academic (protected educational) time ------------------------------
@@ -281,6 +287,9 @@ class Problem:
 
 # Optimisation goals in strict priority order. The first two are the "never come
 # back empty" slacks; the rest are the soft goals from the spec.
-STAGES = ["open shifts", "contract shortfall", "site split", "backward rotations", "day/evening/night balance",
+STAGES = ["open shifts", "contract shortfall", "extra places used", "site split", "backward rotations", "day/evening/night balance",
           "night runs too close", "nights into vacation", "night share over limit", "pod balance",
           "isolated days off", "extra / over-long night runs", "requests off missed"]
+# goals that live on the coverage rows rather than on one resident: places left open below a shift's minimum
+# headcount, and optional places used above it (kept to what the goals above need: reaching contract minimums)
+COVER_STAGES = ("open shifts", "extra places used")

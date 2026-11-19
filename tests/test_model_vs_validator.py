@@ -9,6 +9,7 @@ every soft-goal score.
 import random
 import numpy as np
 from cadence.problem import Problem, STAGES
+from cadence.model import BLOCK_STAGES
 from cadence.generate import make_config
 from cadence.model import Block
 from cadence import validator
@@ -69,7 +70,7 @@ for name, cfg in configs.items():
             if model_ok:
                 legal += 1
                 soft = validator.soft_resident(P, r, shifts, share)
-                for st in STAGES[1:]:
+                for st in BLOCK_STAGES:
                     assert abs(b.value(v, st) - soft[st]) < 1e-6, (name, r.name, st, b.value(v, st), soft[st])
             else:
                 illegal += 1

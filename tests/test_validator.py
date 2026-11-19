@@ -76,7 +76,7 @@ expect("twelve nights in four runs (runs)", B, "separate runs of nights")
 # 8. double-booked shift
 s = P.slot_list[0]; B = copy.deepcopy(A)
 extra = [r for r in P.residents if s.key not in B[r.id] and s.day not in by_day(r.id, B) and r.pgy >= s.min_pgy][0]
-B[extra.id].append(s.key); expect("more residents than the shift needs", B, "only")
+B[extra.id].append(s.key); expect("more residents than the shift allows", B, "at most")
 # 9. academic time: a shift placed across it must be rejected for attendees
 a = next(a for a in P.academic if a.day >= 0)
 from cadence.problem import Shift

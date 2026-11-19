@@ -238,7 +238,7 @@ async function importResult(sch: Any, result: Any): Promise<string> {
     if (!institutionId) problems.add(`institution "${s.site}"`);
     if (!categoryId) problems.add(`shift category "${s.category}"`);
     for (const p of s.assigned as string[]) if (!personIds.has(p)) problems.add(`participant ${p}`);
-    if (s.assigned.length > s.need) problems.add(`${s.name}: more people than needed`);
+    if (s.assigned.length > (s.max ?? s.need)) problems.add(`${s.name}: more people than its maximum headcount`);
     const names: (string | null)[] = [...s.assigned, ...Array(Math.max(0, s.need - s.assigned.length)).fill(null)];
     for (const participantId of names)
       rows.push({ scheduleId: sch.id, participantId, institutionId, categoryId, shiftId: shiftIds.has(s.ref) ? s.ref : null,

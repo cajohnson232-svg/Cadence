@@ -47,7 +47,7 @@ async function main() {
   ok(sch.shifts.length === total, `one row per person per shift: ${sch.shifts.length} rows for ${total} shifts to fill`);
   ok(sch.shifts.filter((s) => !s.participantId).length === rep.validator.open_shifts, `open shifts are stored as rows without a person (${rep.validator.open_shifts})`);
   ok(rep.validator.hard_violations.length === 0, "the engine's independent check found no hard-rule violations");
-  ok(!("slots" in rep) && rep.goals.length === 12 && rep.residents.length === (c.config as any).residents.length, "the report keeps goals and per-person figures, not a second copy of the shifts");
+  ok(!("slots" in rep) && rep.goals.length === 13 && rep.residents.length === (c.config as any).residents.length, "the report keeps goals and per-person figures, not a second copy of the shifts");
   ok(sch.shifts.every((s) => s.endsAt > s.startsAt && s.institutionId && s.categoryId), "every row has a place, a category and a valid time");
   ok(!existsSync(running.workDir!), "the run's work folder is removed after import");
   ok((await settleRun(a.scheduleId)) === "DONE" && (await db.scheduledShift.count({ where: { scheduleId: a.scheduleId, backup: false } })) === total, "settling again does not import twice");

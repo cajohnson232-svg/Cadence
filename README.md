@@ -60,6 +60,7 @@ Everything below is input. `tests/configs/*.json` are complete examples.
 | `history` | shifts worked in the last 7 days of the previous block (carried across the boundary) |
 | `rules` | weekly hours cap, rest ratio, night cap, night-run limits, 45% night share, balance tolerances |
 | `residents[].site_share` | (17 Nov 2026) target percent of a resident's shifts at each site, e.g. `{"MHH": 60, "LBJ": 40}`. A soft goal, third in priority ("site split"), met within `rules.site_share_tolerance_shifts` (default 1) shifts |
+| `shift_templates[].max_headcount` | (19 Nov 2026) most people the shift may have; `headcount` is the minimum (may be 0). Places above the minimum are optional: used only as the "extra places used" goal allows (it comes right after contract shortfall, so they are used to get people to their contract minimum and no more), never beyond the maximum |
 | `rules.max_consecutive_days`, `residents[].max_consecutive_days` | (18 Nov 2026) hard: most days worked in a row (default 6; 0 = no limit). A day counts when a shift belongs to it (a night counts on the evening it starts); the previous block's last week counts too. A personal value overrides the program's |
 | `backup` | (17 Nov 2026) backup lines: name, start, hours, weekdays, headcount, eligible resident ids, and `rules`: `max_per_person`, `min_days_between`, `rest_before_hours`, `rest_after_hours`. See "Backup" below |
 
@@ -117,7 +118,7 @@ period (which is kept free of backup too). Its objective is weighted so that ope
 backups any one person has, then request days used. Open days come back with the reason for each person. A separate plain-loop
 checker re-checks the result. Backup is on call: it does not count toward shifts or hours.
 
-Goals in priority order (12): open shifts, contract shortfall, site split, backward rotations, day/evening/night
+Goals in priority order (13): open shifts, contract shortfall, extra places used, site split, backward rotations, day/evening/night
 balance, night runs too close, nights into vacation, night share over limit, pod balance, isolated days off,
 extra or over-long night runs, requests off missed.
 
@@ -191,6 +192,12 @@ scenarios have not been re-run.
   24h break inside them, six allowed, a personal limit, a run that starts in the previous block, and the exact
   model agreeing on each. In `tests.test_model_vs_validator`, 1,670 of the random schedules break it, and model and
   validator agree on every one.
+* `tests.test_optional_places` (19 Nov 2026): a program whose contract minimums need 22 more shifts than there are
+  required places, with two shifts that can take a second person and a PGY-3-only shift that needs nobody. Without
+  the optional places 22 shifts are short; with them nobody is short, nothing is broken, exactly 22 optional places
+  are used, the 0-1 shift goes only to PGY-3s, and with ordinary minimums none is used. Optional places are
+  coverage slack in the exact model (0 to maximum minus minimum per shift), offered by the first schedule and the
+  swap pass to anyone under their minimum, and given back afterwards by anyone above it.
 * During the test runs the validator rejected none of the moves proposed by the exact solver.
 
 ## Engine

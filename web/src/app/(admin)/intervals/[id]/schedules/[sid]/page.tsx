@@ -110,6 +110,7 @@ export default async function ScheduleReview({ params, searchParams }: { params:
   for (const a of (snap?.academic_time ?? []) as Any[]) if (a.day >= 0 && a.day < n && !(a.pgy?.length === 1 && a.pgy[0] === -1)) programAcademic.set(a.day, [...(programAcademic.get(a.day) ?? []), `${a.name} ${a.start} (${a.hours}h)`]);
 
   const total = rows.length, openRows = rows.filter((r) => !r.participantId), filled = total - openRows.length;
+  const extraUsed: number = rep?.validator?.extra_places_used ?? 0;          // people above a shift's minimum headcount
   const backupOpen = backupRows.filter((r) => !r.participantId).length;
   const violations: string[] = checks.violations;
   const under: string[] = rep?.validator?.under_contract_minimum ?? [];
@@ -153,7 +154,7 @@ export default async function ScheduleReview({ params, searchParams }: { params:
       )}
 
       <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7" data-testid="summary">
-        <div className={tile}><div className="text-xs text-muted">Shifts filled</div><div className="text-lg font-semibold tabular-nums">{filled} <span className="text-sm font-normal text-muted">of {total}</span></div></div>
+        <div className={tile}><div className="text-xs text-muted">Shifts filled</div><div className="text-lg font-semibold tabular-nums">{filled - extraUsed} <span className="text-sm font-normal text-muted">of {total - extraUsed}</span></div>{extraUsed > 0 && <div className="text-xs text-muted" data-testid="extra-used">+ {extraUsed} extra {extraUsed === 1 ? "person" : "people"} above a minimum headcount</div>}</div>
         <div className={cn(tile, openRows.length > 0 && "border-red-200 bg-red-50")}><div className="text-xs text-muted">Open shifts</div><div className={cn("text-lg font-semibold tabular-nums", openRows.length > 0 && "text-red-700")} data-testid="open-count">{openRows.length}</div></div>
         <div className={cn(tile, violations.length > 0 && "border-red-200 bg-red-50")}>
           <div className="text-xs text-muted">Hard rules</div>
