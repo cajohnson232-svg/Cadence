@@ -60,7 +60,8 @@ export default async function ScheduleReview({ params, searchParams }: { params:
         </p>
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        {sch.runStatus === "DONE" && <a href={`${here}/csv`} className={buttonVariants({ variant: "outline", size: "sm" })}>Download spreadsheet</a>}
+        {sch.runStatus === "DONE" && <a href={`${here}/xlsx`} className={buttonVariants({ variant: "outline", size: "sm" })} data-testid="download-xlsx" title="Excel workbook: By person, By shift, Calendar, and Goals & checks">Download Excel</a>}
+        {sch.runStatus === "DONE" && <a href={`${here}/csv`} className={buttonVariants({ variant: "outline", size: "sm" })} title="One line per person per shift">Download CSV</a>}
         <Link href={`${hub}?tab=schedule#generate`} className={buttonVariants({ variant: "outline", size: "sm" })}>Generate again</Link>
         {sch.status === "PUBLISHED"
           ? <form action={unpublishSchedule.bind(null, id, here)}><Button variant="outline" size="sm">Unpublish</Button></form>

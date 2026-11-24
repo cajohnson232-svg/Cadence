@@ -127,6 +127,20 @@ const ok = (cond, what) => { if (cond) { pass++; console.log("ok   " + what); } 
   const csv = await (await ctx.request.get(BASE + review + "/csv")).text();
   const lines = csv.trim().split("\r\n");
   ok(lines.length === 1 + 265 + 28 && /^Date,Day,Shift,Type,Institution/.test(csv) && lines.filter((l) => /,Backup/.test(l)).length === 28, "the spreadsheet download has one line per shift plus one per backup day (265 + 28 + header)");
+  {
+    const res = await ctx.request.get(BASE + review + "/xlsx");
+    const ExcelJS = require("exceljs");
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(await res.body());
+    const names = wb.worksheets.map((w) => w.name);
+    let people = 0;
+    wb.getWorksheet("By person").eachRow((r, i) => { if (i > 4 && /^PGY|Off-service/.test(String(r.getCell(2).value ?? ""))) people++; });
+    const calCells = [];
+    wb.getWorksheet("Calendar").eachRow((r) => r.eachCell((c) => { if (c.value && c.value.richText) calCells.push(c.value.richText.map((x) => x.text).join("")); }));
+    ok(res.status() === 200 && /spreadsheetml/.test(res.headers()["content-type"]) && names.join("|") === "By person|By shift|Calendar|Goals & checks",
+      "the Excel download has the four sheets: " + names.join(", "));
+    ok(people === 18 && calCells.length === 28 && calCells.every((t) => /Backup/.test(t)), `Excel: ${people} people on "By person", 28 calendar days each listing its shifts and backup`);
+  }
 
   // ── who may see it ───────────────────────────────────────────────────────
   await signIn("Dr. Adams");
