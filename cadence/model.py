@@ -151,7 +151,9 @@ class Block:
                 for run in runs:
                     if run is not best:
                         terms += [(X(s), s.dur) for e in run for s in byday.get(e, ())]
-            self._row(terms, hi=R.max_week_minutes)
+            # the previous block's shifts alone may already pass the limit: then nothing more may go in
+            past = sum(max(0, min(s.end, t + WEEK) - max(s.start, t)) for s in hist)
+            self._row(terms, hi=max(R.max_week_minutes, past))
 
         # one continuous 24h free of all duty (shifts + academic time) in every 7 days.
         # free[c] = 1 means [c, c+24h) is completely free. A free day can always be slid
@@ -178,7 +180,19 @@ class Block:
                 if c < a.end and a.start < c + DAY:
                     rows.append((working, 0))
             free[c] = self._aux("max", 0, 1, rows)
+        # a week the previous block already left without a 24h break (with nothing worked in this block)
+        # cannot be fixed now, so it puts no row on this block
+        fixed = sorted([(s.start, s.end) for s in hist] + [
+            (a.start, a.end) for a in att
+            if a.policy == "blocked" or not any(s.start < a.block_to and a.block_from < s.end for s in hist)])
         for d in range(-(H - 1), n - 6):
+            if d < 0:
+                lo_, hi_, cur_, gap_ = d * DAY, d * DAY + WEEK, d * DAY, 0
+                for a, b in fixed:
+                    if b > lo_ and a < hi_:
+                        gap_, cur_ = max(gap_, a - cur_), max(cur_, b)
+                if max(gap_, hi_ - cur_) < DAY:
+                    continue
             self._row([(f, 1) for c, f in free.items() if d * DAY <= c and c + DAY <= d * DAY + WEEK], lo=1)
 
         # contract: maximum is hard; shortfall below the minimum is a slack (stage 2)

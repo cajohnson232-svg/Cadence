@@ -17,6 +17,28 @@ def worked(P: Problem, r: Resident, assignment):
     return sorted(P.hist[r.id] + [P.slots[k] for k in assignment.get(r.id, ())], key=lambda s: s.start)
 
 
+def longest_break(duty, lo, hi):
+    """Longest stretch in [lo, hi) not covered by any (start, end) in duty (sorted by start)."""
+    best, cursor = 0, lo
+    for a, b in duty:
+        if b <= lo or a >= hi:
+            continue
+        best = max(best, a - cursor)
+        cursor = max(cursor, b)
+    return max(best, hi - cursor)
+
+
+def past_broken_weeks(P: Problem, r: Resident):
+    """First days (before day 0) of the 7-day windows that the previous block's shifts and academic
+    time already leave without 24h free of duty, whatever this block does."""
+    past = P.hist[r.id]
+    base = sorted([(s.start, s.end) for s in past] + [
+        (a.start, a.end) for a in P.academic if a.day not in r.vacation and r.id not in a.excused
+        and (a.pgy is None or r.pgy in a.pgy or r.id in a.also)
+        and (a.policy == "blocked" or not any(s.start < a.block_to and a.block_from < s.end for s in past))])
+    return [d for d in range(-(P.rules.history_days - 1), 0) if longest_break(base, d * DAY, d * DAY + WEEK) < DAY]
+
+
 def check_resident(P: Problem, r: Resident, shifts, check_min=True):
     """Hard-rule violations for one resident, given every shift they work
     (previous-block shifts included). Returns plain-English strings."""
@@ -86,33 +108,34 @@ def check_resident(P: Problem, r: Resident, shifts, check_min=True):
         if b.start - a.end < need:
             V.append(f"only {(b.start - a.end) / 60:g}h rest after the {a.dur / 60:g}h shift on {P.label(a.cal)}")
 
-    # clinical time in ANY rolling 7x24h window
-    worst = (0, 0)
+    # clinical time in ANY rolling 7x24h window. Where the previous block's shifts alone already pass the
+    # limit, nothing in this block can undo that: the window may not get any more, but is not counted broken.
+    past = [s for s in shifts if s.hist]
+    worst = (0, 0, 0)
     for t in sorted({s.start for s in shifts} | {s.end - WEEK for s in shifts}):
         if t + WEEK <= 0 or t < -R.history_days * DAY:
             continue
         mins = sum(max(0, min(s.end, t + WEEK) - max(s.start, t)) for s in shifts)
-        if mins > worst[0]:
-            worst = (mins, t)
-    if worst[0] > R.max_week_minutes:
+        limit = max(R.max_week_minutes, sum(max(0, min(s.end, t + WEEK) - max(s.start, t)) for s in past))
+        if mins - limit > worst[0] - worst[2]:
+            worst = (mins, t, limit)
+    if worst[0] > worst[2]:
+        extra = f"; {worst[2] / 60:g}h already worked before this interval" if worst[2] > R.max_week_minutes else ""
         V.append(f"{worst[0] / 60:g}h in the 7 days from {P.label(worst[1] // DAY)} {clock(worst[1])} "
-                 f"(limit {R.max_week_minutes / 60:g}h)")
+                 f"(limit {R.max_week_minutes / 60:g}h{extra})")
 
     # one continuous 24h free of all duty (shifts + academic time) in every 7 days
     # (a resident working a shift across an "excused" session does not attend it)
     attended = [(a.start, a.end) for a in sessions
                 if a.policy == "blocked" or not any(s.start < a.block_to and a.block_from < s.end for s in shifts)]
     duty = sorted([(s.start, s.end) for s in shifts] + attended)
+    # the same with nothing worked in this block: a week that the previous block's shifts (and academic
+    # time) already leave without a 24h break cannot be fixed now, so it is not counted against this block
+    base = sorted([(s.start, s.end) for s in past] + [(a.start, a.end) for a in sessions if a.policy == "blocked"
+                  or not any(s.start < a.block_to and a.block_from < s.end for s in past)])
     for d in range(-(R.history_days - 1), P.n_days - 6):
-        lo, hi = d * DAY, d * DAY + WEEK
-        best, cursor = 0, lo
-        for a, b in duty:
-            if b <= lo or a >= hi:
-                continue
-            best = max(best, a - cursor)
-            cursor = max(cursor, b)
-        best = max(best, hi - cursor)
-        if best < DAY:
+        best = longest_break(duty, d * DAY, d * DAY + WEEK)
+        if best < DAY and not (d < 0 and longest_break(base, d * DAY, d * DAY + WEEK) < DAY):
             V.append(f"no 24h free of duty in the 7 days from {P.label(d)} (longest break {best / 60:g}h)")
 
     # nights

@@ -126,6 +126,9 @@ Hard rules: coverage and PGY eligibility, one shift per day (with the nights exc
 the prior shift, weekly clinical-hours cap on every rolling 7x24h window, one 24h period free of shifts and attended
 academic time in every 7 days, night cap and number of night runs, at most 6 days worked in a row (18 Nov 2026), vacation, mandatory days off, chief time,
 academic time per the admin setting, contract maximum. All carried across the block boundary through `history`.
+A week that the previous block's shifts already break on their own (no 24h off, or more than the weekly hours, with
+nothing worked in this block) cannot be fixed now: it is reported as a note (`past_notes`), not counted as broken, and
+no more hours may go into it (24 Nov 2026; before, such a week made the person unschedulable and they got no shifts).
 
 ## Test results
 

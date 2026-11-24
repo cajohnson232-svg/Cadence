@@ -105,6 +105,8 @@ def precheck(P: Problem):
         if r.shifts_min > min(most, len(avail[r.id])):
             warnings.append(f"{r.name}: contract minimum of {r.shifts_min} shifts may be unreachable "
                             f"({len(avail[r.id])} available days, weekly-hours cap).")
+    from .report import past_notes
+    warnings += past_notes(P)
     return errors, warnings
 
 

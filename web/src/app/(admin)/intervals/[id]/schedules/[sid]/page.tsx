@@ -153,6 +153,14 @@ export default async function ScheduleReview({ params, searchParams }: { params:
         </Notice>
       )}
 
+      {((rep?.past_notes ?? []) as string[]).length > 0 && (
+        <Notice tone="amber">
+          <p className="font-medium">From the previous interval&apos;s shifts entered under &ldquo;How the previous interval ended&rdquo;:</p>
+          <ul className="mt-1 list-disc pl-5" data-testid="past-notes">{(rep.past_notes as string[]).map((v, i) => <li key={i}>{v}</li>)}</ul>
+          <p className="mt-1">If those entries are wrong, correct them on the interval&apos;s Schedule tab and generate again.</p>
+        </Notice>
+      )}
+
       <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7" data-testid="summary">
         <div className={tile}><div className="text-xs text-muted">Shifts filled</div><div className="text-lg font-semibold tabular-nums">{filled - extraUsed} <span className="text-sm font-normal text-muted">of {total - extraUsed}</span></div>{extraUsed > 0 && <div className="text-xs text-muted" data-testid="extra-used">+ {extraUsed} extra {extraUsed === 1 ? "person" : "people"} above a minimum headcount</div>}</div>
         <div className={cn(tile, openRows.length > 0 && "border-red-200 bg-red-50")}><div className="text-xs text-muted">Open shifts</div><div className={cn("text-lg font-semibold tabular-nums", openRows.length > 0 && "text-red-700")} data-testid="open-count">{openRows.length}</div></div>

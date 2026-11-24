@@ -111,6 +111,7 @@ def result(P: Problem, run, violations, opens, short, pre_errors, pre_warnings, 
         "engine": {"backend": run["backend"], "strategy": run["strategy"], "seconds": round(run["seconds"], 1),
                    "decisions": run["decisions"]},
         "precheck": {"errors": list(pre_errors), "warnings": list(pre_warnings)},
+        "past_notes": past_notes(P),
         "validator": {"hard_violations": list(violations), "open_shifts": sum(n for _, n in opens),
                       "total_shifts": sum(s.need for s in P.slot_list), "under_contract_minimum": list(short),
                       "optional_places": sum(s.cap - s.need for s in P.slot_list), "extra_places_used": validator.extra_places(P, A)},
@@ -120,3 +121,15 @@ def result(P: Problem, run, violations, opens, short, pre_errors, pre_warnings, 
                   "site": o["shift"].site, "start": o["shift"].start, "end": o["shift"].end, "need": o["shift"].need,
                   "missing": o["missing"], "reasons": o["reasons"]} for o in open_info],
         "residents": people, "slots": slots, "backup": backup}
+
+
+def past_notes(P):
+    """People whose previous-interval shifts already leave a week without 24h off (nothing here can fix it)."""
+    out = []
+    for r in P.residents:
+        weeks = validator.past_broken_weeks(P, r)
+        if weeks:
+            out.append(f"{r.name}: the previous interval's shifts entered for them already leave no 24 hours off in the "
+                       f"7 days from {P.label(weeks[0])}" + (f" (and {len(weeks) - 1} later start{'s' if len(weeks) > 2 else ''})" if len(weeks) > 1 else "")
+                       + ". That week cannot be fixed in this interval, so it is not held against this schedule.")
+    return out
