@@ -117,7 +117,12 @@ headcount for that day only.
 **How the previous interval ended.** When nothing is published for the interval before, the Schedule tab asks for the
 shifts worked in the 7 days before it: one at a time, or pasted ("name, date, shift name", commas or tabs). The
 engine uses them for rest after nights and the weekly hours limit across the boundary. Shifts of people not in the
-interval are ignored, with a warning.
+interval are ignored, with a warning. They can also be uploaded as a spreadsheet (.xlsx or .csv, up to 5 MB;
+`src/lib/prior-import.ts`): one row per person with a date per column (shift names or codes in the cells, as in
+Cadence's own "By person" sheet), one row per shift with who worked it (Cadence's "By shift"), or a list with a name,
+date and shift on each row. Dates may be Excel dates, 2027-01-11, 1/11/2027, "Jan 11" or just "Mon 11" (the month then
+comes from a date range in the title, or the week before the interval). The sheet giving the most shifts in the 7 days
+wins; shifts already entered are skipped (or replaced, if ticked) and anything not recognised is listed, not guessed.
 
 **Optimize.** A finished schedule that breaks no hard rule can be optimized for 1, 5 or 15 minutes. The engine starts
 from that schedule and keeps working on the soft goals; no goal gets worse unless a goal above it improves. The result
@@ -223,7 +228,8 @@ plus the academic time they attend. Google, Apple and Outlook can subscribe to i
 | `src/lib/ai.ts`, `src/lib/assist.ts`, `src/lib/rule-interpreter.ts` | The Anthropic API call (forced tool use), and the three readers: rules, backup rules, special-day changes; each falls back to the keyword reader |
 | `src/lib/backup-rules.ts`, `src/components/backup-rules-*.tsx`, `src/app/backup-actions.ts` | Backup shift rules |
 | `src/components/special-day-form.tsx`, `src/app/special-day-actions.ts` | Special staffing days |
-| `src/app/prior-actions.ts` | Shifts entered for the previous interval |
+| `src/app/prior-actions.ts` | Shifts entered for the previous interval (typed, pasted or uploaded) |
+| `src/lib/prior-import.ts` | Reading those shifts out of an uploaded .xlsx/.csv |
 | `src/lib/auth.ts` | Who is signed in: the signed session cookie and the checks every page and action starts with |
 | `src/lib/accounts.ts`, `passwords.ts` | Sign-in, the guessing limit, one-time links, who may change whom, password storage |
 | `src/lib/program-setup.ts` | First-time setup, what an empty program starts with, the demo program, start over |
@@ -249,12 +255,13 @@ Everything signs in through the real sign-in form.
     node e2e/smoke.cjs            # every list, edit and new page loads without browser errors
     node e2e/flows.cjs            # 51 checks in a real browser (Playwright): the input screens
     npm run db:reset && node e2e/schedule.cjs          # 57 checks: generate -> review (including the calendar views) -> publish, with the real engine (about 3 minutes)
-    npm run db:reset && node e2e/assignments.cjs       # 60 checks: assignments, academic exceptions, special days, backup, previous interval, optimize (about 3 minutes)
+    npm run db:reset && node e2e/assignments.cjs       # 63 checks: assignments, academic exceptions, special days, backup, previous interval (typed, pasted, uploaded), optimize (about 3 minutes)
     npm run db:reset && npx tsx tests/engine-check.ts  # 46 checks on the engine runner, including optimize, no browser needed
     npm run db:reset && npx tsx tests/hard-rules-check.ts  # 25 checks: role grid, institutions and 6 days in a row, both solvers and optimize, the pre-run check, the review page's causes (about 4 minutes)
     npm run db:reset && npx tsx tests/optional-places-check.ts  # 11 checks: shifts that can take 1-2 and a 0-1 Dugout used to reach everyone's minimum (about 2 minutes)
     npm run db:reset && npx tsx tests/grid-property-check.ts  # 150 random role grids (with roles sharing levels): what the engine is told equals the grid and institutions, for every person and shift
     AI_PROVIDER=mock npx tsx tests/backup-reader-check.ts  # the built-in backup-rule reader on 10 realistic phrasings
+    npm run db:reset && npx tsx tests/prior-import-check.ts  # 7 checks: uploading the previous schedule from Cadence's own download, a program grid, day-number headers, a .csv list
     npx tsx tests/ai-check.ts                          # 15 checks on the Claude readers against a stand-in API server (and the fallback)
     npm run db:reset && npx tsx tests/accounts-check.ts  # 61 checks on sign-in, links, limits, setup and start over, no browser needed
     npm run db:reset && python tests/verify_stored.py  # the stored schedule passes the independent rule check

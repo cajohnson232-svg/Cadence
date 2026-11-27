@@ -14,6 +14,8 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   serverExternalPackages: ["pg"],
   poweredByHeader: false,
+  // uploads of the previous schedule (.xlsx) go through a server action; the default limit is 1 MB
+  experimental: { serverActions: { bodySizeLimit: "6mb" } },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

@@ -9,7 +9,7 @@ import { cancelSchedule, discardSchedule, generateSchedule, setIntervalStatus, s
 import { BUDGETS, runProgress, settleInterval } from "@/lib/engine";
 import { fmtDuration, fmtWhen, shiftsToFill, standing } from "@/lib/schedule-view";
 import { RunProgress } from "@/components/run-progress";
-import { addPriorShift, clearPriorShifts, deletePriorShift, pastePriorShifts } from "@/app/prior-actions";
+import { addPriorShift, clearPriorShifts, deletePriorShift, pastePriorShifts, uploadPriorShifts } from "@/app/prior-actions";
 import { Select } from "@/components/ui/input";
 import { Flash } from "@/components/entity-pages";
 import { RequestStatusButtons } from "@/components/request-buttons";
@@ -466,6 +466,20 @@ async function PriorShifts({ c, id }: { c: C; id: string }) {
         <label className="text-sm"><span className="mb-1 block font-medium">category</span><select name="categoryId" className={sel}><option value="">–</option>{cats.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</select></label>
         <Button size="sm" variant="outline">Add</Button>
       </form>
+      <details className="mt-3 text-sm" data-testid="prior-upload">
+        <summary className="cursor-pointer text-brand">Upload the previous schedule (Excel)</summary>
+        <form action={uploadPriorShifts.bind(null, id)} className="mt-2 space-y-2">
+          <p className="text-xs text-muted">
+            An Excel workbook (.xlsx) or .csv of the previous schedule. The shifts dated {fmtShort(from)} to {fmtShort(to)} are added; other dates are left out.
+            It can be laid out as one row per person with a column per date (shift names or codes in the cells), one row per shift with
+            who worked it each day, or a list with a name, date and shift on each row. A schedule downloaded from Cadence with
+            &ldquo;Download Excel&rdquo; works as it is. Names and shifts must match the ones here; anything that doesn&apos;t is listed afterwards so you can add it by hand.
+          </p>
+          <input type="file" name="file" required accept=".xlsx,.xlsm,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" aria-label="Previous schedule file" className="block text-xs" />
+          <label className="flex items-center gap-2 text-xs"><input type="checkbox" name="replace" /> Replace the shifts already entered here</label>
+          <Button size="sm" variant="outline">Upload and add</Button>
+        </form>
+      </details>
       <details className="mt-3 text-sm">
         <summary className="cursor-pointer text-brand">Paste from a spreadsheet</summary>
         <form action={pastePriorShifts.bind(null, id)} className="mt-2 space-y-2">

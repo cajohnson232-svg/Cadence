@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth";
-import { addDays, parseYmd, toMinutes, ymd } from "@/lib/util";
+import { addDays, fmtShort, parseYmd, toMinutes, ymd } from "@/lib/util";
+import { importPrior } from "@/lib/prior-import";
 
 const str = (fd: FormData, k: string) => String(fd.get(k) ?? "").trim();
 const back = (iv: string, kind: "notice" | "error", text: string): never =>
@@ -68,6 +69,65 @@ export async function pastePriorShifts(intervalId: string, fd: FormData) {
   await db.priorShift.createMany({ data: rows.map((r) => ({ intervalId, ...r })) });
   revalidatePath("/", "layout");
   back(intervalId, "notice", `${rows.length} shift${rows.length === 1 ? "" : "s"} added.`);
+}
+
+const MAX_UPLOAD = 5 * 1024 * 1024;
+const list = (xs: string[], n = 5) => xs.slice(0, n).join("; ") + (xs.length > n ? `; and ${xs.length - n} more` : "");
+
+/** An uploaded .xlsx/.csv of the previous schedule: the shifts in the 7 days before the interval are added. */
+export async function uploadPriorShifts(intervalId: string, fd: FormData) {
+  const { s, iv } = await scope(intervalId);
+  const w = window7(iv.startDate);
+  const file = fd.get("file");
+  if (!(file instanceof File) || file.size === 0) back(intervalId, "error", "Choose a file to upload.");
+  const f = file as File;
+  if (/\.xls$/i.test(f.name)) back(intervalId, "error", "That is an old-style .xls file. Open it in Excel and use Save As → Excel Workbook (.xlsx), then upload that.");
+  if (!/\.(xlsx|xlsm|csv)$/i.test(f.name)) back(intervalId, "error", "Upload an Excel workbook (.xlsx) or a .csv file.");
+  if (f.size > MAX_UPLOAD) back(intervalId, "error", "That file is over 5 MB. Upload just the schedule (one block), or delete other sheets first.");
+  const [people, shifts] = await Promise.all([
+    db.participant.findMany({ where: { programId: s.programId, archivedAt: null }, select: { id: true, firstName: true, lastName: true, email: true } }),
+    db.shift.findMany({ where: { programId: s.programId, archivedAt: null, isBackup: false }, include: { institution: true } }),
+  ]);
+  let res;
+  try {
+    res = await importPrior(Buffer.from(await f.arrayBuffer()), f.name, people, shifts, w, iv.startDate);
+  } catch {
+    back(intervalId, "error", "That file could not be read as a spreadsheet. Open it in Excel, save it as .xlsx, and try again.");
+  }
+  const range = `${fmtShort(w.from)}–${fmtShort(w.to)}`;
+  if (!res || !res.found.length) {
+    const covers = res?.fileDates ? ` The file has shifts from ${fmtShort(res.fileDates[0])} to ${fmtShort(res.fileDates[1])}.` : "";
+    const why = res?.problems.length ? ` Could not read: ${list(res.problems)}.` : "";
+    back(intervalId, "error", `No shifts dated ${range} (the 7 days before ${iv.name}) were found in ${f.name}.${covers}${why}`);
+  }
+  const r = res!;
+  const byId = new Map(shifts.map((x) => [x.id, x]));
+  const key = (pid: string, d: Date, sid: string) => `${pid}|${ymd(d)}|${sid}`;
+  const replace = fd.get("replace") === "on";
+  const existing = replace ? new Set<string>() : new Set((await db.priorShift.findMany({ where: { intervalId } })).map((x) => key(x.participantId, x.date, x.shiftId ?? x.name)));
+  const rows: Row[] = [], keys = new Set<string>();
+  let dup = 0;
+  for (const x of r.found) {
+    const k = key(x.participantId, x.date, x.shiftId);
+    if (keys.has(k)) continue;
+    keys.add(k);
+    if (existing.has(k)) { dup++; continue; }
+    const sh = byId.get(x.shiftId)!;
+    rows.push({ participantId: x.participantId, date: x.date, name: sh.name, startMinute: sh.startMinute, durationMinutes: sh.durationMinutes, categoryId: sh.categoryId, shiftId: sh.id });
+  }
+  await db.$transaction([
+    ...(replace ? [db.priorShift.deleteMany({ where: { intervalId } })] : []),
+    db.priorShift.createMany({ data: rows.map((x) => ({ intervalId, ...x })) }),
+  ]);
+  revalidatePath("/", "layout");
+  const who = new Set(rows.map((x) => x.participantId)).size;
+  const parts = [
+    `Read "${r.sheet}" (${r.layout}): added ${rows.length} shift${rows.length === 1 ? "" : "s"} for ${who} ${who === 1 ? "person" : "people"}, ${range}${replace ? ", replacing what was entered before" : ""}.`,
+    dup ? `${dup} already entered ${dup === 1 ? "was" : "were"} skipped.` : "",
+    r.outside ? `Shifts on other dates in the file were left out.` : "",
+    r.problems.length ? `Not added, check these by hand: ${list(r.problems)}.` : "",
+  ];
+  back(intervalId, "notice", parts.filter(Boolean).join(" "));
 }
 
 export async function deletePriorShift(intervalId: string, id: string) {

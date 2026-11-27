@@ -246,9 +246,28 @@ const ok = (cond, what) => { if (cond) { pass++; console.log("ok   " + what); } 
   await p.getByLabel("Pasted shifts").fill("Adams, 2026-12-05, Day T\nHarper Kim\t2026-12-06\tEvening M");
   msg = await flash(p.getByRole("button", { name: "Add these" }));
   ok(/2 shifts added/.test(msg) && (await p.getByTestId("prior-list").locator("tr").count()) === 3, "pasted lines (comma or tab separated) are added");
+  {
+    // upload a spreadsheet of the previous schedule: a grid of people by date
+    const ExcelJS = require("exceljs");
+    const wb = new ExcelJS.Workbook(), ws = wb.addWorksheet("Block 5");
+    ws.addRow(["Resident", "12/3/2026", "12/4/2026", "12/5/2026", "12/6/2026"]);
+    ws.addRow(["Adams, Avery", "", "", "Day T", "off"]);
+    ws.addRow(["Okafor, Noor", "", "Night M", "ICU", ""]);
+    const file = { name: "previous-block.xlsx", mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buffer: Buffer.from(await wb.xlsx.writeBuffer()) };
+    await p.getByText("Upload the previous schedule (Excel)").click();
+    await p.getByLabel("Previous schedule file").setInputFiles(file);
+    msg = await flash(p.getByRole("button", { name: "Upload and add" }));
+    ok(/added 1 shift for 1 person[\s\S]*1 already entered was skipped[\s\S]*"ICU": not a shift here/.test(msg) && (await p.getByTestId("prior-list").locator("tr").count()) === 4,
+      "an uploaded spreadsheet adds the new shift, skips the one already entered, and lists what it could not read");
+    ok(/Okafor, Noor[\s\S]*Night M/.test(await p.getByTestId("prior-list").innerText()), "the uploaded shift is in the list");
+    await p.getByText("Upload the previous schedule (Excel)").click();
+    await p.getByLabel("Previous schedule file").setInputFiles({ name: "old.xls", mimeType: "application/vnd.ms-excel", buffer: Buffer.from("x") });
+    msg = await flash(p.getByRole("button", { name: "Upload and add" }));
+    ok(isError() && /Save As/.test(msg), "an old .xls file is refused with how to save it as .xlsx");
+  }
   for (const pid of ["p01", "p13"]) { await go(`/assignments/${pid}?interval=iv_6`); await flash(p.getByRole("button", { name: "Assign to Block 6" })); }
   ok(/Previous interval[\s\S]*2 shift\(s\) entered by hand/.test(await rules("iv_6")), "the compiled rules use the entered shifts of people in the interval as history (Adams, Nguyen)");
-  ok(/1 shift\(s\) entered for the previous interval belong to people not assigned/.test(await text()), "and warn about the one for someone not in the interval (Kim)");
+  ok(/2 shift\(s\) entered for the previous interval belong to people not assigned/.test(await text()), "and warn about the ones for people not in the interval (Kim, Okafor)");
 
   await shot("end");
   if (errors.length) { console.log("BROWSER ERRORS:\n" + errors.slice(0, 8).join("\n")); }
